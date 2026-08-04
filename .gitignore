@@ -1,0 +1,21 @@
+# Variables d'environnement et secrets (NE JAMAIS COMMITTER)
+.env
+.env.*
+!.env.example
+
+# Environnements Python
+__pycache__/
+*.py[cod]
+myenv/
+venv/
+.venv/
+
+# Rapports et index générés
+reports/
+faiss_index/
+*.log
+
+# Outils
+.idea/
+.vscode/
+.DS_Store

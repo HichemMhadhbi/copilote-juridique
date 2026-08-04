@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://top-juridique.local/schemas/kb-entry.json",
+  "title": "Entrée de la base de connaissance juridique",
+  "description": "Schéma de validation pour les entrées de la base de connaissance TOP-JURIDIQUE.",
+  "type": "object",
+  "required": [
+    "id", "source", "titre_texte", "numero_article", "version",
+    "date_entree_vigueur", "domaine", "mots_cles",
+    "types_documents_concernes", "regles_controle"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Identifiant unique de l'entrée (ex. SOC-001)."
+    },
+    "source": {
+      "type": "string",
+      "description": "Source officielle (ex. Code de commerce, Légifrance)."
+    },
+    "titre_texte": {
+      "type": "string",
+      "description": "Titre complet du texte de référence."
+    },
+    "numero_article": {
+      "type": "string",
+      "description": "Numéro de l'article concerné."
+    },
+    "version": {
+      "type": "string",
+      "description": "Version ou millésime du texte."
+    },
+    "date_entree_vigueur": {
+      "type": "string",
+      "format": "date",
+      "description": "Date d'entrée en vigueur (YYYY-MM-DD)."
+    },
+    "date_abrogation": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Date d'abrogation éventuelle (null si encore en vigueur)."
+    },
+    "domaine": {
+      "type": "string",
+      "description": "Domaine juridique (ex. droit des sociétés, droit commercial)."
+    },
+    "mots_cles": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Mots-clés pour la recherche sémantique."
+    },
+    "types_documents_concernes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Types de documents auxquels cette règle s'applique."
+    },
+    "regles_controle": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type_regle", "description", "priorite", "correction_recommandee"
+        ],
+        "properties": {
+          "type_regle": {
+            "type": "string",
+            "description": "Type de règle (ex. conformité, cohérence, vérification)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description détaillée de la règle de contrôle."
+          },
+          "priorite": {
+            "type": "string",
+            "enum": ["bloquant", "important", "alerte"],
+            "description": "Niveau de priorité de la règle."
+          },
+          "correction_recommandee": {
+            "type": "string",
+            "description": "Correction ou action recommandée."
+          }
+        }
+      },
+      "description": "Liste des règles de contrôle associées."
+    }
+  }
+}

@@ -1,0 +1,184 @@
+{
+  "rapport_id": "196dc871-9f66-4262-9d65-031999e469c5",
+  "date_analyse": "2026-08-04T17:32:36.218524",
+  "documents_analyses": [
+    {
+      "nom": "statuts_sarl.pdf",
+      "type": "statuts de societe",
+      "statut": "analyse"
+    },
+    {
+      "nom": "pacte_associes_sarl.pdf",
+      "type": "pacte d'associes",
+      "statut": "analyse"
+    }
+  ],
+  "documents_manquants": [],
+  "documents_illisibles": [],
+  "informations_principales": {
+    "nombre_documents": 2,
+    "types_documents": {
+      "statuts_sarl.pdf": "statuts de societe",
+      "pacte_associes_sarl.pdf": "pacte d'associes"
+    },
+    "regles_controle_appliquees": true,
+    "entites_extraites": {
+      "statuts_sarl.pdf": {
+        "dates": [],
+        "montants": [
+          {
+            "valeur": "50000",
+            "devise": "EUR",
+            "position": 494
+          },
+          {
+            "valeur": "100",
+            "devise": "EUR",
+            "position": 540
+          }
+        ],
+        "parties": [
+          {
+            "nom": "STATUTS DE LA SOCIETE TOP LEGAL CONSEIL",
+            "type": "societe",
+            "position": 0
+          },
+          {
+            "nom": "SARL",
+            "type": "societe",
+            "position": 41
+          }
+        ],
+        "personnes": [],
+        "articles": []
+      },
+      "pacte_associes_sarl.pdf": {
+        "dates": [],
+        "montants": [
+          {
+            "valeur": "50000",
+            "devise": "EUR",
+            "position": 297
+          },
+          {
+            "valeur": "100",
+            "devise": "EUR",
+            "position": 343
+          }
+        ],
+        "parties": [
+          {
+            "nom": "PACTE D",
+            "type": "societe",
+            "position": 0
+          },
+          {
+            "nom": "ASSOCIES",
+            "type": "societe",
+            "position": 8
+          },
+          {
+            "nom": "SARL TOP LEGAL CONSEIL",
+            "type": "societe",
+            "position": 19
+          }
+        ],
+        "personnes": [],
+        "articles": []
+      }
+    },
+    "base_juridique": "18 entrees",
+    "statut_lecture": {
+      "statuts_sarl.pdf": "natif",
+      "pacte_associes_sarl.pdf": "natif"
+    },
+    "qualite_documents": {
+      "statuts_sarl.pdf": {
+        "illisible": false,
+        "ocr_faible": false,
+        "page_manquante": false,
+        "incomplet": false,
+        "detail": "lecture correcte"
+      },
+      "pacte_associes_sarl.pdf": {
+        "illisible": false,
+        "ocr_faible": false,
+        "page_manquante": false,
+        "incomplet": false,
+        "detail": "lecture correcte"
+      }
+    },
+    "document_text": "STATUTS DE LA SOCIETE TOP LEGAL CONSEIL (SARL) Article 1 - Forme juridique La société est une société à responsabilité limitée (SARL) régie par le Code de commerce.\nArticle 2 - Objet social La société a pour objet le conseil juridique, la formation et toutes opérations connexes.\nArticle 3 - Dénomination sociale La société a pour dénomination sociale Top Legal Conseil.\nArticle 4 - Siège social Le siège social est fixé à Paris (75002).\nArticle 5 - Capital social Le capital social est fixé à 50 000 euros, divisé en 500 parts sociales de 100 euros.\nArticle 6 - Gérance et pouvoirs du gérant La société est gérée par un gérant nommé par les associés.\nLe gérant dispose des pouvoirs les plus étendus pour agir au nom de la société, dans la limite de l'objet social et des restrictions prévues aux statuts.\n\nPACTE D'ASSOCIES - SARL TOP LEGAL CONSEIL Article 1 - Objet du pacte Le présent pacte a pour objet de régir les relations entre les associés de la société Top Legal Conseil et de compléter les statuts.\nArticle 2 - Capital social et répartition des parts Le capital social de la société est fixé à 50 000 euros, divisé en 500 parts sociales de 100 euros chacune, réparties entre les associés.\nArticle 3 - Agrément des cessions de parts Toute cession de parts sociales à un tiers est soumise à l'agrément préalable des associés statuant à la majorité des deux tiers.\nArticle 4 - Non-concurrence Chaque associé s'engage, pendant la durée du pacte et pendant une durée de deux ans après sa cessation, à ne pas concurrencer la société.\nArticle 5 - Médiation en cas de conflit En cas de désaccord entre les associés, les parties conviennent de recourir à une médiation préalable avant toute action judiciaire.",
+    "sources_officielles": {
+      "mode": "piste",
+      "piste_mode": "oauth",
+      "piste_token_configured": true,
+      "anomalies_liees_a_legifrance": 3,
+      "anomalies_reference_fictive": 0,
+      "references_verifiees_piste": 3,
+      "verification_active": true,
+      "avertissement": "Les références marquées 'fictif' doivent être remplacées par de vraies références vérifiées via Légifrance/PISTE avant production."
+    }
+  },
+  "incoherences": [],
+  "anomalies_juridiques": [
+    {
+      "explication": "Aucune clause d'agrément trouvée dans le document. (cession de parts sociales, article L.223-14 du Code de commerce)",
+      "nature_controle": "clause_manquante",
+      "priorite": "bloquant",
+      "consequence": "Aucune clause d'agrément trouvée dans le document. (cession de parts sociales, article L.223-14 du Code de commerce)",
+      "source_juridique": "Art. L223-14",
+      "correction_recommandee": "Ajouter une clause d'agrément précisant la majorité requise pour l'entrée d'un nouvel associé.",
+      "documents_a_verifier": [
+        "statuts_sarl.pdf"
+      ],
+      "validation_requise": "oui",
+      "legifrance_url": "https://www.legifrance.gouv.fr/search/code?tab_selection=code&searchField=ALL&query=L223-14",
+      "source_verifiee": true,
+      "source_statut": "verifiee",
+      "legifrance_id": "LEGIARTI000006223059",
+      "texte_officiel": "Les parts sociales ne peuvent être cédées à des tiers étrangers à la société qu'avec le consentement de la majorité des associés représentant au moins la moitié des parts sociales, à moins que les statuts prévoient une majorité plus forte. Lorsque la société comporte plus d'un associé, le projet de cession est notifié à la société et à chacun des associés. Si la société n'a pas fait connaître sa d"
+    },
+    {
+      "explication": "Aucune clause de sortie (drag-along / tag-along) identifiée.",
+      "nature_controle": "clause_manquante",
+      "priorite": "important",
+      "consequence": "Aucune clause de sortie (drag-along / tag-along) identifiée.",
+      "source_juridique": "Art. 1103 C. civ",
+      "correction_recommandee": "Envisager l'ajout d'une clause de sortie conjointe pour protéger les associés minoritaires.",
+      "documents_a_verifier": [
+        "statuts_sarl.pdf"
+      ],
+      "validation_requise": "oui",
+      "legifrance_url": "https://www.legifrance.gouv.fr/search/code?tab_selection=code&searchField=ALL&query=1103",
+      "source_verifiee": true,
+      "source_statut": "verifiee",
+      "legifrance_id": "LEGIARTI000032040777",
+      "texte_officiel": "Les contrats légalement formés tiennent lieu de loi à ceux qui les ont faits."
+    },
+    {
+      "explication": "Aucun mécanisme de résolution de blocage (médiation / arbitrage) trouvé.",
+      "nature_controle": "clause_manquante",
+      "priorite": "important",
+      "consequence": "Aucun mécanisme de résolution de blocage (médiation / arbitrage) trouvé.",
+      "source_juridique": "Art. 1530 C. proc. civ",
+      "correction_recommandee": "Ajouter une clause de médiation préalable et une clause compromissoire.",
+      "documents_a_verifier": [
+        "statuts_sarl.pdf"
+      ],
+      "validation_requise": "oui",
+      "legifrance_url": "https://www.legifrance.gouv.fr/search/code?tab_selection=code&searchField=ALL&query=1530",
+      "source_verifiee": true,
+      "source_statut": "verifiee",
+      "legifrance_id": "LEGIARTI000051930593",
+      "texte_officiel": "La conciliation et la médiation régies par le présent titre s'entendent de tout processus structuré par lequel plusieurs personnes tentent, avec l'aide d'un tiers, de parvenir à un accord destiné à la résolution du différend qui les oppose."
+    }
+  ],
+  "clauses_a_risque": [],
+  "clauses_manquantes": [],
+  "ameliorations_proposees": [],
+  "niveau_risque_global": "eleve",
+  "recommandations_finales": [],
+  "points_validation_humaine": [],
+  "synthese_intelligente": "**Synthèse exécutive :** Le rapport d'analyse révèle un niveau de risque global élevé pour la société Top Legal Conseil, principalement en raison de clauses manquantes dans les documents examinés. Les anomalies détectées concernent notamment l'absence de clause d'agrément pour la cession de parts sociales et de mécanisme de résolution de blocage. \nLes documents analysés incluent les statuts de la société et le pacte d'associés, qui régissent les relations entre les associés et la société.\nCes lacunes juridiques nécessitent une attention particulière pour assurer la stabilité et la sécurité juridique de la société.\n\n**Points clés :**\n- Le niveau de risque global est élevé en raison de plusieurs anomalies détectées dans les documents.\n- Les documents examinés comprennent les statuts de la société et le pacte d'associés, qui fixent les règles de fonctionnement et de relation entre les associés.\n- Des montants significatifs sont en jeu, notamment le capital social de 50 000 euros divisé en parts sociales de 100 euros chacune.\n- L'absence de certaines clauses essentielles, comme la clause d'agrément pour la cession de parts sociales, pose des risques juridiques importants.\n- Le pacte d'associés inclut des dispositions sur la non-concurrence et la médiation en cas de conflit, mais certaines clauses clés sont manquantes.\n\n**Recommandations :**\n- Il est recommandé d'ajouter une clause d'agrément pour la cession de parts sociales dans les statuts ou le pacte d'associés pour se conformer aux exigences légales.\n- La mise en place d'un mécanisme de résolution de blocage, tel que la médiation ou l'arbitrage, est fortement conseillée pour éviter les conflits entre associés.\n- Une révision approfondie des documents pour identifier et corriger toutes les anomalies détectées est nécessaire pour minimiser les risques juridiques.\n- Il est essentiel de consulter un expert juridique pour s'assurer que les documents sont conformes aux lois et réglementations applicables et pour obtenir des conseils sur la manière de remédier aux anomalies détectées."
+}

@@ -1,0 +1,168 @@
+[
+  {
+    "id": "PACT-001",
+    "source": "Code civil",
+    "titre_texte": "Clause de sortie conjointe (drag-along)",
+    "numero_article": "Art. 1103 C. civ",
+    "version": "2024",
+    "date_entree_vigueur": "2016-10-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés - pacte d'associés",
+    "mots_cles": ["sortie", "drag-along", "cession", "cessionnaire", "associé majoritaire"],
+    "types_documents_concernes": ["pacte_associes"],
+    "regles_controle": [
+      {
+        "type_regle": "conformité",
+        "description": "Vérifier que la clause de drag-along n'oblige pas l'associé minoritaire à céder ses parts à un prix inférieur à celui de l'associé majoritaire.",
+        "priorite": "bloquant",
+        "correction_recommandee": "Garantir un prix égal et des conditions identiques entre associé majoritaire et minoritaire."
+      },
+      {
+        "type_regle": "vérification",
+        "description": "S'assurer que le seuil de déclenchement du drag-along est clairement défini (ex. cession de >50% du capital).",
+        "priorite": "important",
+        "correction_recommandee": "Ajouter le seuil de déclenchement en pourcentage du capital."
+      }
+    ]
+  },
+  {
+    "id": "PACT-002",
+    "source": "Code civil",
+    "titre_texte": "Clause de non-concurrence",
+    "numero_article": "Art. 1103 C. civ",
+    "version": "2024",
+    "date_entree_vigueur": "2016-10-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés - pacte d'associés",
+    "mots_cles": ["non-concurrence", "associé", "gérant", "cession", "restriction"],
+    "types_documents_concernes": ["pacte_associes"],
+    "regles_controle": [
+      {
+        "type_regle": "proportionnalité",
+        "description": "Vérifier que la clause de non-concurrence est justifiée par un intérêt légitime et limitée dans le temps (durée raisonnable) et dans l'espace (zone géographique définie).",
+        "priorite": "bloquant",
+        "correction_recommandee": "Limiter la durée de la clause à une durée raisonnable (2 ans maximum en pratique) et préciser le périmètre géographique."
+      }
+    ]
+  },
+  {
+    "id": "PACT-003",
+    "source": "Code civil",
+    "titre_texte": "Pacte de préférence",
+    "numero_article": "Art. 1123 C. civ",
+    "version": "2024",
+    "date_entree_vigueur": "2016-10-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés - pacte d'associés",
+    "mots_cles": ["préférence", "préemption", "cession prioritaire", "associé", "droit de premier refus"],
+    "types_documents_concernes": ["pacte_associes"],
+    "regles_controle": [
+      {
+        "type_regle": "conformité",
+        "description": "Vérifier que la clause de préférence prévoit la notification écrite du bénéficiaire lorsque l'associé décide de céder ses parts à un tiers, et un délai de réponse.",
+        "priorite": "important",
+        "correction_recommandee": "Prévoir la notification du bénéficiaire par écrit (formalisme de l'article 1123 C. civ) et un délai de réponse raisonnable avant toute cession à un tiers."
+      }
+    ]
+  },
+  {
+    "id": "PACT-004",
+    "source": "Code de procédure civile",
+    "titre_texte": "Clause de blocage des décisions",
+    "numero_article": "Art. 1530 C. proc. civ",
+    "version": "2024",
+    "date_entree_vigueur": "2024-01-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés - pacte d'associés",
+    "mots_cles": ["blocage", "droit de veto", "médiation", "arbitrage", "résolution"],
+    "types_documents_concernes": ["pacte_associes"],
+    "regles_controle": [
+      {
+        "type_regle": "conformité",
+        "description": "S'assurer qu'un mécanisme de résolution est prévu en cas de blocage (médiation, conciliation, arbitrage, buy-out).",
+        "priorite": "bloquant",
+        "correction_recommandee": "Ajouter une clause de médiation conventionnelle préalable (art. 1530 C. proc. civ) et une clause compromissoire en cas d'échec."
+      }
+    ]
+  },
+  {
+    "id": "PACT-005",
+    "source": "Code civil",
+    "titre_texte": "Clause de liquidation préférentielle",
+    "numero_article": "Art. 1844-1 C. civ",
+    "version": "2024",
+    "date_entree_vigueur": "2024-01-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés - pacte d'associés",
+    "mots_cles": ["liquidation", "préférentielle", "boni de liquidation", "ordre de répartition"],
+    "types_documents_concernes": ["pacte_associes"],
+    "regles_controle": [
+      {
+        "type_regle": "vérification",
+        "description": "Vérifier que l'ordre de répartition du boni de liquidation respecte les droits de chaque catégorie de parts, dans les limites de l'article 1844-1 C. civ.",
+        "priorite": "important",
+        "correction_recommandee": "Détailler l'ordre de répartition par catégorie d'associés (fondateurs, investisseurs, etc.)."
+      }
+    ]
+  },
+  {
+    "id": "PACT-006",
+    "source": "Code de commerce",
+    "titre_texte": "Gouvernance et composition du conseil",
+    "numero_article": "Art. L227-5",
+    "version": "2024",
+    "date_entree_vigueur": "2024-01-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés - pacte d'associés",
+    "mots_cles": ["gouvernance", "conseil", "administrateur", "observateur", "vote"],
+    "types_documents_concernes": ["pacte_associes"],
+    "regles_controle": [
+      {
+        "type_regle": "conformité",
+        "description": "Vérifier que la composition du conseil reflète la répartition du capital et le nombre de sièges prévus.",
+        "priorite": "important",
+        "correction_recommandee": "Ajuster le nombre de sièges au prorata des parts ou selon la règle convenue (les statuts déterminent librement les conditions de direction, art. L.227-5 C. com)."
+      }
+    ]
+  },
+  {
+    "id": "PACT-007",
+    "source": "Code civil",
+    "titre_texte": "Clause de tag-along (sortie conjointe minoritaire)",
+    "numero_article": "Art. 1103 C. civ",
+    "version": "2024",
+    "date_entree_vigueur": "2016-10-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés - pacte d'associés",
+    "mots_cles": ["tag-along", "minoritaire", "cession", "protection", "sortie conjointe"],
+    "types_documents_concernes": ["pacte_associes"],
+    "regles_controle": [
+      {
+        "type_regle": "conformité",
+        "description": "Vérifier que la clause de tag-along permet à l'associé minoritaire de céder ses parts aux mêmes conditions que le majoritaire.",
+        "priorite": "bloquant",
+        "correction_recommandee": "Ajouter une clause de tag-along assortie d'un droit de céder au prorata des parts détenues."
+      }
+    ]
+  },
+  {
+    "id": "PACT-008",
+    "source": "Code civil",
+    "titre_texte": "Clause de non-concurrence post-cession",
+    "numero_article": "Art. 1103 C. civ",
+    "version": "2024",
+    "date_entree_vigueur": "2016-10-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés - pacte d'associés",
+    "mots_cles": ["non-concurrence", "post-cession", "cessionnaire", "cession", "loyauté"],
+    "types_documents_concernes": ["pacte_associes"],
+    "regles_controle": [
+      {
+        "type_regle": "proportionnalité",
+        "description": "Vérifier que la clause de non-concurrence post-cession est justifiée par l'intérêt social et limitée dans son périmètre.",
+        "priorite": "important",
+        "correction_recommandee": "Réduire la portée de la clause à l'activité exercée et à la zone géographique pertinente."
+      }
+    ]
+  }
+]

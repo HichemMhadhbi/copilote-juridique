@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: top-juridique-copilote
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app.py --server.address=0.0.0.0 --server.port=$PORT --server.headless=true
+    healthCheckPath: /_stcore/health
+    envVars:
+      - key: PISTE_ENV
+        value: prod
+      - key: PISTE_CLIENT_ID
+        sync: false
+      - key: PISTE_CLIENT_SECRET
+        sync: false
+      - key: PISTE_API_KEY
+        sync: false
+      - key: PISTE_API_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false

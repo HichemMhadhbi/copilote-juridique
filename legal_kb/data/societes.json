@@ -1,0 +1,220 @@
+[
+  {
+    "id": "SOC-001",
+    "source": "Code de commerce",
+    "titre_texte": "Code de commerce — Gérance de SARL",
+    "numero_article": "Art. L223-18",
+    "version": "2024",
+    "date_entree_vigueur": "2024-01-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés",
+    "mots_cles": ["gérance", "SARL", "nomination", "pouvoirs", "représentation légale"],
+    "types_documents_concernes": ["statuts", "pacte_associes"],
+    "regles_controle": [
+      {
+        "type_regle": "conformité",
+        "description": "Vérifier que les statuts désignent nommément le ou les gérants et précisent l'étendue de leurs pouvoirs.",
+        "priorite": "bloquant",
+        "correction_recommandee": "Ajouter la désignation du gérant et la limite de ses pouvoirs dans l'article dédié à la gérance."
+      },
+      {
+        "type_regle": "cohérence",
+        "description": "S'assurer que la durée du mandat du gérant est identique dans les statuts et dans le pacte d'associés.",
+        "priorite": "important",
+        "correction_recommandee": "Harmoniser la durée de mandat entre les deux documents."
+      }
+    ]
+  },
+  {
+    "id": "SOC-002",
+    "source": "Code de commerce",
+    "titre_texte": "Code de commerce — Assemblée générale ordinaire",
+    "numero_article": "Art. L225-98",
+    "version": "2024",
+    "date_entree_vigueur": "2024-01-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés",
+    "mots_cles": ["assemblée générale", "AGO", "quorum", "majorité", "convocation"],
+    "types_documents_concernes": ["statuts"],
+    "regles_controle": [
+      {
+        "type_regle": "conformité",
+        "description": "Vérifier que les statuts respectent le quorum légal de 20% sur première convocation pour l'AG ordinaire.",
+        "priorite": "bloquant",
+        "correction_recommandee": "Corriger le quorum statutaire pour le porter à 20% minimum sur première convocation."
+      },
+      {
+        "type_regle": "vérification",
+        "description": "S'assurer que les modalités de convocation sont décrites (délai, forme, ordre du jour).",
+        "priorite": "important",
+        "correction_recommandee": "Ajouter un article sur les modalités de convocation des assemblées."
+      }
+    ]
+  },
+  {
+    "id": "SOC-003",
+    "source": "Code de commerce",
+    "titre_texte": "Code de commerce — Cession de parts sociales",
+    "numero_article": "Art. L223-14",
+    "version": "2024",
+    "date_entree_vigueur": "2024-01-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés",
+    "mots_cles": ["cession de parts", "agrément", "associé", "transmission", "parts sociales"],
+    "types_documents_concernes": ["statuts", "pacte_associes"],
+    "regles_controle": [
+      {
+        "type_regle": "conformité",
+        "description": "Vérifier que la procédure d'agrément pour la cession de parts à un tiers est bien décrite.",
+        "priorite": "bloquant",
+        "correction_recommandee": "Ajouter une clause d'agrément conforme à l'article L.223-14 (consentement de la majorité des associés représentant au moins la moitié des parts sociales, sauf clause statutaire plus stricte)."
+      },
+      {
+        "type_regle": "cohérence",
+        "description": "Comparer les délais d'agrément entre statuts et pacte — ils doivent être identiques.",
+        "priorite": "important",
+        "correction_recommandee": "Uniformiser les modalités d'agrément (majorité requise, délais de réponse et de rachat) entre les deux documents."
+      }
+    ]
+  },
+  {
+    "id": "SOC-004",
+    "source": "Code de commerce",
+    "titre_texte": "Code de commerce — Droit de veto des associés",
+    "numero_article": "Art. L223-27",
+    "version": "2024",
+    "date_entree_vigueur": "2024-01-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés",
+    "mots_cles": ["droit de veto", "associé", "décision", "blocage", "minorité"],
+    "types_documents_concernes": ["statuts", "pacte_associes"],
+    "regles_controle": [
+      {
+        "type_regle": "conformité",
+        "description": "Vérifier que le droit de veto n'excède pas les limites légales et ne paralyse pas la gestion courante.",
+        "priorite": "bloquant",
+        "correction_recommandee": "Limiter le droit de veto aux seules décisions stratégiques listées dans les statuts."
+      }
+    ]
+  },
+  {
+    "id": "SOC-005",
+    "source": "Code de commerce",
+    "titre_texte": "Code de commerce — Clause d'agrément",
+    "numero_article": "Art. L228-23",
+    "version": "2024",
+    "date_entree_vigueur": "2024-01-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés",
+    "mots_cles": ["agrément", "cession", "tiers", "associé", "approbation"],
+    "types_documents_concernes": ["statuts", "pacte_associes"],
+    "regles_controle": [
+      {
+        "type_regle": "conformité",
+        "description": "Vérifier que la clause d'agrément est prévue par les statuts, dans une société dont les actions ne sont pas admises aux négociations sur un marché réglementé, et que les titres sont nominatifs.",
+        "priorite": "important",
+        "correction_recommandee": "Conformer la clause d'agrément à l'article L.228-23 (titres nominatifs, société non cotée) et en préciser la procédure (organe compétent, délai de réponse)."
+      }
+    ]
+  },
+  {
+    "id": "SOC-006",
+    "source": "Code de commerce",
+    "titre_texte": "Code de commerce — Dissolution et liquidation de la société",
+    "numero_article": "Art. L237-1",
+    "version": "2024",
+    "date_entree_vigueur": "2024-01-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés",
+    "mots_cles": ["dissolution", "liquidation", "anticipée", "associés", "liquidateur"],
+    "types_documents_concernes": ["statuts"],
+    "regles_controle": [
+      {
+        "type_regle": "conformité",
+        "description": "Vérifier que les statuts prévoient les règles de liquidation applicables dès la dissolution (désignation du liquidateur, étendue de ses pouvoirs, durée de la liquidation, répartition de l'actif).",
+        "priorite": "important",
+        "correction_recommandee": "Compléter les statuts par un article de liquidation conforme à l'article L.237-1 (la liquidation est régie par les statuts, sous réserve des dispositions impératives du chapitre)."
+      }
+    ]
+  },
+  {
+    "id": "SOC-007",
+    "source": "Code de commerce",
+    "titre_texte": "Code de commerce — Responsabilité du gérant",
+    "numero_article": "Art. L223-22",
+    "version": "2024",
+    "date_entree_vigueur": "2024-01-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés",
+    "mots_cles": ["responsabilité", "gérant", "faute de gestion", "action sociale", "associés"],
+    "types_documents_concernes": ["statuts", "pacte_associes"],
+    "regles_controle": [
+      {
+        "type_regle": "vérification",
+        "description": "Vérifier que les statuts ne limitent pas la responsabilité du gérant de façon contraire à la loi.",
+        "priorite": "bloquant",
+        "correction_recommandee": "Supprimer toute clause limitant la responsabilité personnelle du gérant."
+      }
+    ]
+  },
+  {
+    "id": "SOC-008",
+    "source": "Code de commerce",
+    "titre_texte": "Code de commerce — Obligations d'information des associés",
+    "numero_article": "Art. L223-26",
+    "version": "2024",
+    "date_entree_vigueur": "2024-01-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés",
+    "mots_cles": ["information", "comptes", "rapport", "associé", "communication"],
+    "types_documents_concernes": ["statuts"],
+    "regles_controle": [
+      {
+        "type_regle": "conformité",
+        "description": "S'assurer que les documents mis à disposition des associés (comptes annuels, rapport de gestion) sont listés et communiqués dans les délais légaux.",
+        "priorite": "important",
+        "correction_recommandee": "Ajouter la liste des documents communicables aux associés (comptes annuels, rapport de gestion) et leur mise à disposition au moins 15 jours avant l'assemblée."
+      }
+    ]
+  },
+  {
+    "id": "SOC-009",
+    "source": "Code de commerce",
+    "titre_texte": "Code de commerce — Transformation de la société",
+    "numero_article": "Art. L224-3",
+    "version": "2024",
+    "date_entree_vigueur": "2024-01-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés",
+    "mots_cles": ["transformation", "fusion", "scission", "forme sociale", "commissaire à la transformation"],
+    "types_documents_concernes": ["statuts"],
+    "regles_controle": [
+      {
+        "type_regle": "conformité",
+        "description": "Vérifier qu'en cas de transformation en société par actions d'une société sans commissaire aux comptes, un commissaire à la transformation est désigné et l'évaluation des biens d'actif et des avantages particuliers est approuvée par les associés.",
+        "priorite": "bloquant",
+        "correction_recommandee": "Désigner un commissaire à la transformation conformément à l'article L.224-3 ; à défaut d'approbation expresse des associés, la transformation est nulle."
+      }
+    ]
+  },
+  {
+    "id": "SOC-010",
+    "source": "Code de commerce",
+    "titre_texte": "Code de commerce — Capital social de la SARL",
+    "numero_article": "Art. L223-2",
+    "version": "2024",
+    "date_entree_vigueur": "2024-01-01",
+    "date_abrogation": null,
+    "domaine": "droit des sociétés",
+    "mots_cles": ["capital social", "SARL", "apport", "libération", "parts sociales égales"],
+    "types_documents_concernes": ["statuts"],
+    "regles_controle": [
+      {
+        "type_regle": "conformité",
+        "description": "Vérifier que le capital social est fixé par les statuts et divisé en parts sociales égales (aucun minimum légal pour la SARL depuis la loi n°2003-721 du 1er août 2003).",
+        "priorite": "bloquant",
+        "correction_recommandee": "Supprimer toute référence à un capital minimum légal abrogé ; le capital est fixé librement par les statuts et divisé en parts égales."
+      }
+    ]
+  }
+]

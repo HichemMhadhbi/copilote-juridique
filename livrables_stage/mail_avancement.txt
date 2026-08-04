@@ -1,0 +1,101 @@
+Objet : Stage — Point d'avancement à mi-parcours : le prototype Copilote IA Juridique est fonctionnel
+
+Bonjour,
+
+Nous voici à la semaine 4 de mon stage. Je vous fais un point complet sur tout le travail réalisé jusqu'ici, accompagné du benchmark des solutions existantes que j'ai préparé.
+
+1. Ce que j'ai compris de la mission
+
+Développer un copilote IA qui analyse le contenu juridique des documents d'un dossier, extrait les informations clés, détecte les failles et les risques immédiats ou futurs, compare les documents entre eux, s'appuie sur des sources officielles et génère un rapport de contrôle exploitable pour le juriste. La décision finale reste toujours à la charge du juriste ou du formaliste. Le système doit être modulaire pour s'étendre à de nouveaux types de documents.
+
+2. Le prototype est fonctionnel
+
+J'ai développé un prototype complet qui fonctionne de bout en bout. Voici ce qu'il sait faire :
+
+Lecture et formats
+- PDF, Word, images (PNG/JPG/JPEG) et texte (TXT)
+- Classification automatique du type de document (pacte d'associés, statuts, autre)
+
+Extraction des informations
+- Dates, montants, organisations/parties, références d'articles, clauses
+
+Détection des problèmes
+- 8 règles de contrôle juridiques : clause d'agrément, clause de sortie, droit de veto, majorités de décision, non-concurrence, contradiction pacte/statuts, clause de blocage, pouvoirs du gérant
+- Chaque anomalie a une priorité (bloquant / important / alerte), une explication, une source juridique et une correction recommandée
+- Comparaison croisée entre documents (pacte vs statuts) : dates, montants, parties, clauses
+- Niveau de risque global : faible / modéré / élevé
+
+Rapport de contrôle
+- Rapport structuré : documents analysés, anomalies présentées une par une, corrections recommandées, documents à vérifier, validation humaine requise
+- Export en PDF, Markdown et JSON
+- Export de la conversation en TXT et PDF
+
+Assistant conversationnel
+- On peut poser des questions sur le document analysé (résumé, parties, dates, risques, recommandations...)
+- 10 questions typiques prédéfinies + questions libres
+
+Enrichissement IA (optionnel, avec protections)
+- Groq en priorité, OpenRouter en secours, repli automatique en cas d'absence de clé ou d'échec
+- Sans clé API, l'application fonctionne à 100 % en local et n'envoie aucune donnée
+- L'IA ne cite jamais une référence juridique inventée : sans source fiable, elle le dit
+- Synthèse intelligente générée par IA dans le rapport
+
+Interface et qualité
+- Interface professionnelle (thème navy/or) avec indicateurs visuels de risque
+- 39 tests automatisés qui passent tous
+
+3. Comment le code est organisé
+
+Le projet est découpé en couches séparées et évolutives (environ 6 700 lignes de Python) :
+
+1. Lecture des documents (ingestion) — PDF, Word, OCR, classification
+2. Extraction des informations (extraction) — entités et clauses
+3. Comparaison des documents (comparison)
+4. Règles de contrôle déterministes (rules_engine) — les 8 règles
+5. Base juridique (legal_kb) — schéma structuré + 18 entrées
+6. Recherche dans les documents (rag) — index vectoriel local
+7. Modèles IA (llm) — Groq / Google AI / OpenRouter
+8. Génération du rapport (report_generator)
+9. Validation humaine (validation)
+10. API REST (api) — pour l'intégration future dans TOP-JURIDIQUE
+
+En plus : une interface web (Streamlit), une interface ligne de commande (CLI), une documentation complète (6 documents) et 4 fichiers de tests.
+
+4. Cas d'usage retenu
+
+J'ai choisi, comme prévu, l'analyse d'un pacte d'associés comparé aux statuts de la société. C'est le cas le plus démonstratif : il montre les contradictions entre les deux documents, les clauses sensibles et les risques de conflit entre associés. Il valide tout le pipeline : extraction, comparaison, règles, rapport, validation humaine.
+
+5. Benchmark des solutions existantes
+
+J'ai analysé plus de 15 solutions IA juridiques (internationales et françaises). En résumé :
+
+- Les outils internationaux (Harvey, Luminance, Kira, Spellbook, Ironclad) sont des outils d'entreprise très coûteux, orientés gros cabinets et contrats, sans formalités françaises.
+- Les outils français se répartissent en deux familles : les IA d'assistance juridique (Jimini AI, Ordalie, Haiku, Doctrine) et les plateformes de formalités (JURIDIFEEL, Manewco, LegalVision).
+- Aucune solution ne combine l'analyse juridique du contenu (failles, risques, comparaison pacte/statuts) ET le contrôle de conformité aux formalités avec validation humaine.
+
+C'est notre angle de différenciation : TOP-JURIDIQUE = plateforme de formalités + copilote d'analyse du dossier. Le détail complet est joint dans le document benchmark.
+
+6. Plan pour les 4 prochaines semaines
+
+- Semaines 5-6 : intégration Légifrance/PISTE (vraies références juridiques), OCR des scans, enrichissement de la base juridique
+- Semaine 7 : workflow de validation humaine dans l'interface, extension à d'autres documents (procès-verbaux, décisions sociales)
+- Semaine 8 : intégration à l'environnement de test TOP-JURIDIQUE, documentation, tests finaux et passation
+
+7. De quoi j'aurais besoin de votre part
+
+- Quelques dossiers anonymisés (pacte + statuts) pour tester sur des cas réels
+- La documentation Légifrance/PISTE si vous l'avez
+- Vos disponibilités pour un point de validation régulier (je prépare avant chaque point les questions et les résultats à valider)
+- L'accès à l'environnement de test TOP-JURIDIQUE pour l'intégration
+
+8. Points forts à retenir
+
+- Le système fonctionne déjà sans aucune IA externe (confidentialité totale des données)
+- L'architecture est modulaire : on peut ajouter des documents, des règles et des sources facilement
+- Chaque anomalie est expliquée, sourcée et corrigeable par un juriste
+- Aucun risque d'hallucination : jamais de référence juridique inventée
+
+Je joins à ce mail deux documents : l'analyse complète de tout le travail réalisé et le benchmark détaillé des solutions. Je reste disponible pour un point afin de valider la suite.
+
+Cordialement,
+[Hichem]
