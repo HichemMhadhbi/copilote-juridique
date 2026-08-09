@@ -15,12 +15,20 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from rules_engine.rules import (
     check_clause_agrement,
     check_clause_sortie,
+    check_clause_confidentialite,
+    check_clause_deces_incapacite,
+    check_clause_impaye,
+    check_clause_resiliation,
+    check_desequilibre_pouvoirs,
     check_droit_veto,
     check_majorite_decisions,
     check_clause_non_concurrence,
     check_conflict_pacte_statuts,
     check_clause_blocage,
     check_responsabilite_gerant,
+    check_clause_deces_incapacite,
+    check_clause_impaye,
+    check_valorisation_sortie,
     _forme_sociale,
     _article_agrement,
     _article_decisions,
@@ -219,9 +227,9 @@ class TestRuleCheckerFullRun:
         assert not any("agrement" in t for t in textes), "L'agrément présent dans le pacte est ignoré."
         assert not any("blocage" in t for t in textes), "La médiation présente dans le pacte est ignorée."
         assert not any("pouvoirs du gerant" in t for t in textes), "La règle gérant est propre aux statuts."
-        # Seule la sortie manquante doit être signalée
-        sorties = [t for t in textes if "sortie" in t]
-        assert len(sorties) == 1, "Seule l'absence de clause de sortie doit être signalée."
+        # L'absence de clause de sortie doit être signalée (règle du pacte)
+        sorties = [t for t in textes if "aucune clause de sortie" in t]
+        assert len(sorties) == 1, "L'absence de clause de sortie doit être signalée une fois."
 
     def test_statuts_seuls_sans_faux_positifs(self) -> None:
         """Des statuts analysés seuls ne doivent pas déclencher les règles du pacte."""
@@ -240,6 +248,192 @@ class TestRuleCheckerFullRun:
         assert not any("non-concurrence" in t for t in textes)
         # La règle gérant s'applique aux statuts : pouvoirs trouvés avec limite -> aucune anomalie
         assert not any("pouvoirs" in t for t in textes)
+
+
+class TestRisquesFuturs:
+    """Tests des regles de risques futurs (valorisation, deces, impaye)."""
+
+    def test_valorisation_manquante_si_cession(self) -> None:
+        """Une clause de cession sans methode de valorisation est signalee."""
+        data = _make_data(
+            clauses=["Clause de cession — cession libre des parts entre associes"],
+            type_doc="pacte_associes",
+        )
+        result = check_valorisation_sortie(data)
+        assert len(result) == 1
+        assert result[0]["type"] == "risque_futur"
+        assert result[0]["reference_juridique"] == "Art. 1843-4 C. civ"
+
+    def test_valorisation_presente(self) -> None:
+        """Une clause avec reference a l'expert ne declenche rien."""
+        data = _make_data(
+            clauses=[
+                "Clause de sortie — le prix sera fixe par un expert independant "
+                "conformement a l'article 1843-4 du Code civil"
+            ],
+            type_doc="pacte_associes",
+        )
+        assert check_valorisation_sortie(data) == []
+
+    def test_valorisation_sans_sortie(self) -> None:
+        """Un document sans mecanisme de sortie/cession ne declenche rien."""
+        data = _make_data(clauses=["Article 1 — Objet"], type_doc="pacte_associes")
+        assert check_valorisation_sortie(data) == []
+
+    def test_deces_non_couvert_dans_pacte(self) -> None:
+        """Un pacte silencieux sur le deces/incapacite est alerte."""
+        data = _make_data(clauses=["Article 1 — Objet"], type_doc="pacte_associes")
+        result = check_clause_deces_incapacite(data)
+        assert len(result) == 1
+        assert result[0]["priorite"] == "alerte"
+        assert result[0]["reference_juridique"] == "Art. L223-13"
+
+    def test_deces_couvert(self) -> None:
+        """Un pacte organisant le sort des heritiers ne declenche rien."""
+        data = _make_data(
+            clauses=[
+                "Sort des parts en cas de deces — les heritiers doivent etre agrees"
+            ],
+            type_doc="pacte_associes",
+        )
+        assert check_clause_deces_incapacite(data) == []
+
+    def test_deces_ignore_dans_statuts(self) -> None:
+        """La regle deces/incapacite est propre au pacte (pas de faux positif)."""
+        data = _make_data(clauses=["Article 1 — Objet"], type_doc="statuts")
+        assert check_clause_deces_incapacite(data) == []
+
+    def test_impaye_alerte_si_paiement_sans_sanction(self) -> None:
+        """Un paiement sans sanction de defaillance est signale."""
+        data = _make_data(
+            clauses=[
+                "Appel de fonds — chaque associe verse sa contribution sous 30 jours"
+            ],
+            type_doc="pacte_associes",
+        )
+        result = check_clause_impaye(data)
+        assert len(result) == 1
+        assert result[0]["reference_juridique"] == "Art. 1225 C. civ"
+
+    def test_impaye_couvert_par_clause_resolutoire(self) -> None:
+        """Une clause resolutoire couvre le risque de non-paiement."""
+        data = _make_data(
+            clauses=[
+                "En cas de non-paiement, mise en demeure puis clause resolutoire"
+            ],
+            type_doc="pacte_associes",
+        )
+        assert check_clause_impaye(data) == []
+
+    def test_impaye_sans_paiement(self) -> None:
+        """Un document sans obligation de paiement ne declenche rien."""
+        data = _make_data(clauses=["Article 1 — Objet"], type_doc="pacte_associes")
+        assert check_clause_impaye(data) == []
+
+
+class TestRisqueConfidentialite:
+    """Regle 17 : clause de confidentialite."""
+
+    def test_confidentialite_alerte_sans_clause(self) -> None:
+        """Des informations sensibles sans clause de confidentialite sont signalees."""
+        data = _make_data(
+            clauses=[
+                "Le pacte contient les donnees financieres et la strategie de la societe"
+            ],
+            type_doc="pacte_associes",
+        )
+        result = check_clause_confidentialite(data)
+        assert len(result) == 1
+        assert result[0]["type"] == "risque_futur"
+        assert result[0]["reference_juridique"] == "Art. L151-1 C. com"
+
+    def test_confidentialite_couverte(self) -> None:
+        """Une clause de confidentialite couvre le risque."""
+        data = _make_data(
+            clauses=[
+                "Chaque associe s'engage a la confidentialite sur le savoir-faire de la societe"
+            ],
+            type_doc="pacte_associes",
+        )
+        assert check_clause_confidentialite(data) == []
+
+    def test_confidentialite_sans_informations(self) -> None:
+        """Un pacte sans informations sensibles ne declenche rien."""
+        data = _make_data(clauses=["Article 1 — Objet"], type_doc="pacte_associes")
+        assert check_clause_confidentialite(data) == []
+
+    def test_confidentialite_propre_au_pacte(self) -> None:
+        """La regle ne s'applique pas aux statuts (pas de faux positif)."""
+        data = _make_data(clauses=["Article 1 — Objet"], type_doc="statuts")
+        assert check_clause_confidentialite(data) == []
+
+
+class TestRisqueResiliation:
+    """Regle 18 : duree/engagement irrevocable sans issue."""
+
+    def test_resiliation_alerte_si_duree_sans_issue(self) -> None:
+        """Un pacte conclu pour une duree sans clause de resiliation est signale."""
+        data = _make_data(
+            clauses=["Le present pacte est conclu pour une duree de dix ans"],
+            type_doc="pacte_associes",
+        )
+        result = check_clause_resiliation(data)
+        assert len(result) == 1
+        assert result[0]["type"] == "risque_futur"
+        assert result[0]["reference_juridique"] == "Art. 1210 C. civ"
+
+    def test_resiliation_couverte(self) -> None:
+        """Une clause de resiliation avec preavis couvre le risque."""
+        data = _make_data(
+            clauses=[
+                "Le present pacte est conclu pour une duree de dix ans, "
+                "resiliable avec un preavis de six mois"
+            ],
+            type_doc="pacte_associes",
+        )
+        assert check_clause_resiliation(data) == []
+
+    def test_resiliation_sans_engagement(self) -> None:
+        """Un pacte sans duree ni engagement irrevocable ne declenche rien."""
+        data = _make_data(clauses=["Article 1 — Objet"], type_doc="pacte_associes")
+        assert check_clause_resiliation(data) == []
+
+
+class TestRisqueDesequilibre:
+    """Regle 19 : pouvoirs unilateraux sans protection minoritaire."""
+
+    def test_desequilibre_alerte_si_veto_sans_protection(self) -> None:
+        """Un veto unilateral sans protection du minoritaire est signale."""
+        data = _make_data(
+            clauses=["L'associe majoritaire dispose d'un droit de veto sur toute decision"],
+            type_doc="pacte_associes",
+        )
+        result = check_desequilibre_pouvoirs(data)
+        assert len(result) == 1
+        assert result[0]["type"] == "risque_futur"
+        assert result[0]["priorite"] == "important"
+        assert result[0]["reference_juridique"] == "Art. 1104 C. civ"
+
+    def test_desequilibre_couvert_par_tag_along(self) -> None:
+        """Une protection du minoritaire (tag-along) equilibre le veto."""
+        data = _make_data(
+            clauses=[
+                "Droit de veto de l'associe majoritaire ; tag-along au profit "
+                "des associes minoritaires en cas de cession"
+            ],
+            type_doc="pacte_associes",
+        )
+        assert check_desequilibre_pouvoirs(data) == []
+
+    def test_desequilibre_sans_veto(self) -> None:
+        """Un pacte sans pouvoir unilateral ne declenche rien."""
+        data = _make_data(clauses=["Article 1 — Objet"], type_doc="pacte_associes")
+        assert check_desequilibre_pouvoirs(data) == []
+
+    def test_desequilibre_propre_au_pacte(self) -> None:
+        """La regle ne s'applique pas aux statuts (pas de faux positif)."""
+        data = _make_data(clauses=["Article 1 — Objet"], type_doc="statuts")
+        assert check_desequilibre_pouvoirs(data) == []
 
 
 class TestReferenceParFormeSociale:

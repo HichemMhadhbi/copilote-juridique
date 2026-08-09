@@ -146,8 +146,40 @@ def _export_report_as_pdf(report: dict[str, Any]) -> bytes:
     ))
     story.append(Spacer(1, 4))
 
+    # -- Synthèse exécutive (en tête du rapport)
+    risque = report.get("niveau_risque_global", "non_evalue")
+    risk_label = {"eleve": "Élevé", "modere": "Modéré", "faible": "Faible"}.get(risque, "Non évalué")
+    anomalies_list = report.get("anomalies_juridiques", [])
+    incoherences_list = report.get("incoherences", [])
+    n_bloquants = sum(1 for a in anomalies_list if a.get("priorite") == "bloquant")
+    n_importants = sum(1 for a in anomalies_list if a.get("priorite") == "important")
+    section("Synthèse exécutive")
+    summary_data = [
+        ["Documents analysés", str(len(report.get("documents_analyses", [])))],
+        ["Anomalies juridiques", str(len(anomalies_list))],
+        ["  dont bloquantes", str(n_bloquants)],
+        ["  dont importantes", str(n_importants)],
+        ["Incohérences entre documents", str(len(incoherences_list))],
+        ["Niveau de risque global", risk_label],
+    ]
+    summary_table = Table(summary_data, colWidths=[62 * mm, 62 * mm])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), GOLD_BG),
+        ("GRID", (0, 0), (-1, -1), 0.4, GOLD),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(summary_table)
+    synthese = report.get("synthese_intelligente")
+    if synthese:
+        story.append(Spacer(1, 4))
+        story.append(Paragraph(_conv_md_to_pdf_html(synthese), styles["Body"]))
+    story.append(Spacer(1, 6))
+
     # -- Documents analysés
-    section("1. Documents analysés")
     docs = report.get("documents_analyses", [])
     if docs:
         rows = [[Paragraph("<b>Document</b>", styles["Small"]),
@@ -201,12 +233,6 @@ def _export_report_as_pdf(report: dict[str, Any]) -> bytes:
             styles["Body"],
         ))
 
-    synthese = report.get("synthese_intelligente")
-    if synthese:
-        section("Synthèse intelligente (IA)")
-        story.append(Paragraph(_conv_md_to_pdf_html(synthese), styles["Body"]))
-        story.append(Spacer(1, 6))
-
     # -- Anomalies juridiques
     anomalies = report.get("anomalies_juridiques", [])
     section(f"3. Anomalies juridiques ({len(anomalies)})")
@@ -226,6 +252,13 @@ def _export_report_as_pdf(report: dict[str, Any]) -> bytes:
         details = []
         if a.get("source_juridique"):
             details.append(f"<b>Source juridique :</b> {h(a['source_juridique'])}")
+        url = a.get("legifrance_url")
+        if url and a.get("source_statut") in ("verifiee", "liee"):
+            details.append(
+                f"<b>Vérification :</b> <link href='{h(url)}' color='blue'>Voir le texte sur Légifrance</link>"
+            )
+        elif a.get("source_statut") == "introuvable":
+            details.append("<b>Vérification :</b> référence introuvable dans Légifrance (à vérifier)")
         if a.get("correction_recommandee"):
             details.append(f"<b>Correction recommandée :</b> {h(a['correction_recommandee'])}")
         docs_verif = a.get("documents_a_verifier", [])

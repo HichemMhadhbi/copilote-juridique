@@ -115,6 +115,123 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
         return f"[Erreur extraction Word: {e}]"
 
 
+def _strip_embedded_images(file_bytes: bytes) -> bytes:
+    """Retire les blobs d'images scannées (PNG/JPEG) d'un fichier .doc brut.
+
+    Les signatures et logos scannés sont stockés en l'état (PNG ou JPEG)
+    dans le conteneur OLE2. Leur décodage ANSI produit des artefacts
+    binaires (IHDR, IEND, JFIF, chaînes aléatoires) qui polluent l'analyse.
+    """
+    result = file_bytes
+    while True:
+        png_start = result.find(b"\x89PNG\r\n\x1a\n")
+        if png_start != -1:
+            iend = result.find(b"IEND", png_start)
+            if iend != -1:
+                result = result[:png_start] + result[iend + 12:]
+                continue
+        jpeg_start = result.find(b"\xff\xd8\xff")
+        if jpeg_start != -1:
+            jpeg_end = result.find(b"\xff\xd9", jpeg_start)
+            if jpeg_end != -1:
+                result = result[:jpeg_start] + result[jpeg_end + 2:]
+                continue
+        break
+    return result
+
+
+def _extract_text_from_doc_binary(file_bytes: bytes) -> str:
+    """Repli sans Word : extrait le texte d'un fichier .doc depuis le binaire.
+
+    Les fichiers .doc (Word 97-2003, conteneur OLE2) stockent le texte en
+    morceaux : certains en UTF-16LE, d'autres en ANSI (cellules de tableau,
+    en-têtes, notes...). On recupere les deux familles de morceaux puis on
+    les fusionne, ce qui conserve l'essentiel du texte (denomination sociale,
+    parties, dates, montants) meme sans Microsoft Word installe.
+    """
+    import re
+
+    file_bytes = _strip_embedded_images(file_bytes)
+
+    def _runs(decode_errors: str, pattern: str) -> list[str]:
+        try:
+            decoded = file_bytes.decode("utf-16le", errors=decode_errors)
+        except Exception:
+            return []
+        runs = re.findall(pattern, decoded)
+        return [run.strip() for run in runs if run.strip()]
+
+    runs_utf16 = _runs("ignore", r"[\x20-\x7EÀ-ÿ]{3,}")
+    try:
+        decoded_ansi = file_bytes.decode("latin-1", errors="ignore")
+    except Exception:
+        decoded_ansi = ""
+    runs_ansi = [
+        run.strip()
+        for run in re.findall(r"[\x20-\x7E\xA0-\xFF]{3,}", decoded_ansi)
+        if run.strip()
+    ]
+
+    ordre: list[str] = []
+    vus: set[str] = set()
+    for run in runs_utf16 + runs_ansi:
+        if run not in vus:
+            vus.add(run)
+            ordre.append(run)
+
+    # Retire les artefacts de structure OLE2 (noms de flux, [Content_Types]...)
+    # qui polluent le texte et peuvent etre pris pour des champs a completer.
+    artefacts_ole = {
+        "contenttypes", "rootentry", "worddocument",
+        "summaryinformation", "documentsummaryinformation",
+        "msodatastore", "compobj",
+    }
+    texte = "\n".join(
+        run for run in ordre
+        if not any(
+            a in "".join(c for c in run.lower() if c.isalnum())
+            for a in artefacts_ole
+        )
+    )
+    return texte if texte else "[.doc illisible]"
+
+
+def extract_text_from_doc(file_bytes: bytes, filename: str = "document.doc") -> str:
+    """Extrait le texte d'un fichier Word (.doc) via Word (COM) - poste Windows.
+
+    Sur un serveur sans Microsoft Word (ex. Render/Linux), un message clair
+    invite a convertir le fichier en PDF ou .docx avant analyse.
+    """
+    try:
+        import win32com.client
+        import tempfile
+
+        suffix = os.path.splitext(filename)[1] or ".doc"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+        try:
+            word = win32com.client.Dispatch("Word.Application")
+            word.Visible = False
+            try:
+                doc = word.Documents.Open(tmp_path, ReadOnly=True)
+                text = doc.Content.Text
+                doc.Close(False)
+                return text.strip()
+            finally:
+                word.Quit()
+        finally:
+            os.unlink(tmp_path)
+    except ImportError:
+        return _extract_text_from_doc_binary(file_bytes)
+    except Exception as e:
+        # Repli : le texte reste exploitable meme si Word n'est pas licencie.
+        fallback = _extract_text_from_doc_binary(file_bytes)
+        if fallback.startswith("[.doc illisible]"):
+            return f"[Erreur extraction .doc: {e}]"
+        return fallback
+
+
 def extract_text_from_image(file_bytes: bytes) -> str:
     """Extrait le texte d'une image via OCR."""
     try:
@@ -332,6 +449,8 @@ def extract_document_text(uploaded_file) -> tuple[str, str]:
         text = extract_text_from_pdf(file_bytes, filename)
     elif ext == ".docx":
         text = extract_text_from_docx(file_bytes)
+    elif ext == ".doc":
+        text = extract_text_from_doc(file_bytes, filename)
     elif ext in (".png", ".jpg", ".jpeg"):
         text = extract_text_from_image(file_bytes)
     elif ext == ".txt":
@@ -370,6 +489,9 @@ def extract_all_documents_with_status(uploaded_files: list) -> tuple[dict[str, s
         elif ext == ".docx":
             text = extract_text_from_docx(file_bytes)
             status = "natif"
+        elif ext == ".doc":
+            text = extract_text_from_doc(file_bytes, filename)
+            status = "natif" if not text.startswith("[") else "erreur"
         elif ext in (".png", ".jpg", ".jpeg"):
             text = extract_text_from_image(file_bytes)
             status = "ocr" if not text.startswith("[") else "ocr_indisponible"

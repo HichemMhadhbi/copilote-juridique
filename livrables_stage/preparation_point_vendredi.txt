@@ -1,0 +1,62 @@
+PRÉPARATION DU POINT DE VALIDATION — VENDREDI
+=============================================
+
+1. Ce qui a été corrigé (depuis le dernier retour)
+- Correction L.228-23 → L.223-14 : pour une SARL, la clause d'agrément s'appuie
+  sur l'article L.223-14 du Code de commerce (cession de parts) ; L.228-23 est
+  réservé aux sociétés par actions.
+- Détection automatique de la forme sociale (SARL/EURL, SA, SAS/SASU, SNC/SCS)
+  dans le moteur de règles.
+- Adaptation de toutes les règles dépendant de la forme juridique : agrément,
+  majorités/décisions, droit de veto.
+- 6 nouveaux tests dédiés à la correction → 79 tests automatisés, tous au vert.
+
+1b. Nouveautés de la dernière itération (P0/P2)
+- Suppression des « fausses parties » extraites (placeholders [SEUIL]/[DATE],
+  villes, en-têtes de clauses, fragments OCR) : les parties des 6 dossiers
+  réels sont désormais exactes.
+- Correction du champ d'anomalie (nature_controle au lieu de type) dans les
+  synthèses.
+- Chat : les réponses citent désormais la clause exacte du document
+  (« Article 19 — Durée et fin »).
+- Rapport PDF/Markdown : synthèse exécutive en tête + statut de vérification
+  Légifrance et lien « Voir le texte sur Légifrance » par anomalie.
+- 2 tests ajoutés → 81 tests automatisés, tous au vert.
+
+2. Livrables transmis
+- Lien de l'assistant en ligne : https://top-juridique-copilote.onrender.com
+- Résultats des 81 tests : livrables_stage/resultats_tests.txt
+- Documents de l'exemple : livrables_stage/documents_exemple/
+- Rapports : livrables_stage/rapport_exemple/rapport_analyse.pdf et .json
+- Rapports des 6 dossiers réels régénérés : analyse_reel/rapports/
+
+3. Résultats de l'exemple (statuts + pacte SARL)
+- Niveau de risque : ÉLEVÉ
+- 3 anomalies, toutes vérifiées en direct dans Légifrance (PISTE) :
+  1. Absence de clause d'agrément — Art. L223-14 (bloquant)
+  2. Absence de clause de sortie — Art. 1103 C. civ (important)
+  3. Absence de mécanisme de blocage — Art. 1530 C. proc. civ (important)
+- 0 incohérence entre documents, 0 référence fictive.
+
+4. Questions à valider avec l'encadrante
+Q1. La correction des références selon la forme juridique (L.223-14 pour SARL)
+    est-elle conforme à votre attente ?
+Q2. Le lien en ligne vous convient-il ? Souhaitez-vous tester vous-même
+    avec vos documents ?
+Q3. Le format du rapport (PDF/JSON/Markdown, statut de vérification des sources)
+    est-il exploitable pour les juristes ?
+Q4. La vérification PISTE/Légifrance en direct répond-elle au besoin ?
+    Faut-il étendre à d'autres sources ?
+Q5. Pour l'intégration TOP-JURIDIQUE : pouvez-vous communiquer l'accès à
+    l'environnement de test (URL + identifiants) ?
+Q6. Quelques dossiers anonymisés réels (pacte + statuts) peuvent-ils être
+    fournis pour valider sur des cas concrets ?
+Q7. Le découpage en modules livrés testés et validés est-il satisfaisant ?
+    Souhaitez-vous un rythme de livraison précis ?
+Q8. Y a-t-il des règles juridiques supplémentaires à ajouter (clauses
+    spécifiques, régimes particuliers) ?
+
+5. Décisions à valider
+- Validation des 3 anomalies de l'exemple (agrément, sortie, blocage).
+- Validation du niveau de risque global et des recommandations.
+- Validation du planning d'intégration TOP-JURIDIQUE après obtention des accès.

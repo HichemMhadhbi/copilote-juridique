@@ -112,6 +112,9 @@ def export_to_markdown(report_dict: dict[str, Any]) -> str:
             }
             if statut in labels:
                 lignes.append(f"- **Vérification source :** {labels[statut]}")
+            url = anom.get("legifrance_url", "")
+            if url and statut in ("verifiee", "liee"):
+                lignes.append(f"- **Lien Légifrance :** [Voir le texte sur Légifrance]({url})")
             texte_officiel = anom.get("texte_officiel", "")
             if statut == "verifiee" and texte_officiel:
                 lignes.append(f"- **Extrait texte officiel :** {texte_officiel}…")
@@ -350,6 +353,12 @@ def export_to_pdf(report_dict: dict[str, Any]) -> bytes:
             statut = anom.get("source_statut", "")
             if statut in statut_labels:
                 detail_data.append(["Vérification source", statut_labels[statut]])
+            url = anom.get("legifrance_url", "")
+            if url and statut in ("verifiee", "liee"):
+                detail_data.append([
+                    "Lien Légifrance",
+                    f'<link href="{url}" color="blue">Voir le texte sur Légifrance</link>',
+                ])
             detail_data.append(["Correction", anom.get("correction_recommandee", "N/A")])
             detail_table = Table(detail_data, colWidths=[4.5 * cm, 12.5 * cm])
             detail_table.setStyle(TableStyle([

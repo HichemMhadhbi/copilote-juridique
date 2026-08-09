@@ -39,6 +39,11 @@ _JUNK_PATTERNS = [
     re.compile(r'et la procédure\s*\d*\s*$', re.IGNORECASE),
 ]
 
+_CLAUSE_HEADING = re.compile(
+    r"^\s*(?:Article|Art\.)\s+\d+(?:bis|ter)?\b[^\n]*",
+    re.IGNORECASE,
+)
+
 
 def _is_junk_sentence(sentence: str) -> bool:
     """Detecte les phrases/en-tetes sans valeur informative (Fiche N, numeros de page...)."""
@@ -224,6 +229,36 @@ def _sliding_window_search(question: str, text: str, window: int = 600, step: in
     return [b for _, b in results[:top_k]]
 
 
+def _reference_clause(block: str, document_text: str) -> str:
+    """Retourne la clause (Article N - Titre) contenant le debut du bloc, si trouvable.
+
+    Permet de citer la référence exacte de la clause dans la réponse du chat
+    au lieu de renvoyer un simple extrait.
+    """
+    first_line = next((l.strip() for l in block.split("\n") if l.strip()), "")
+    if not first_line or not document_text:
+        return ""
+    idx = document_text.find(first_line)
+    if idx == -1:
+        return ""
+    matches = list(_CLAUSE_HEADING.finditer(document_text[:idx]))
+    if not matches:
+        return ""
+    return " ".join(matches[-1].group(0).split())
+
+
+def _format_extracts(windows: list[str], document_text: str) -> str:
+    """Formate les blocs d'extraits avec la reference de la clause en tete."""
+    answer = ""
+    for w in windows:
+        ref = _reference_clause(w, document_text)
+        if ref:
+            answer += f"**{ref}**\n"
+        answer += "".join(f"> {line}\n" for line in w.split("\n"))
+        answer += "\n"
+    return answer
+
+
 def answer_question_from_report(question: str, report: dict[str, Any]) -> str:
     """Repond a une question : IA si une cle valide est disponible, sinon repli local."""
     local_answer = _answer_local(question, report)
@@ -274,9 +309,7 @@ def _answer_local(question: str, report: dict[str, Any]) -> str:
         answer = ""
         if extra_header:
             answer += extra_header + "\n\n"
-        for w in windows:
-            answer += "".join(f"> {line}\n" for line in w.split("\n"))
-            answer += "\n"
+        answer += _format_extracts(windows, document_text)
         answer += "---\n*Recherche basee sur le contenu du document.*"
         return answer
 

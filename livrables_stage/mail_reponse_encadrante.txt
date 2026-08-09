@@ -15,7 +15,9 @@ Je reviens vers vous concernant les deux points de votre retour : la correction 
 - Rapports générés : rapport_analyse.pdf et rapport_analyse.json (pièces jointes).
 
 3. Mise en ligne de l'assistant
-- L'assistant est prêt pour le déploiement sur Render. Je le mets en ligne demain matin et je vous transmets le lien dès qu'il est accessible.
+- L'assistant est déployé et accessible en ligne :
+  https://top-juridique-copilote.onrender.com
+- Vérifié sur l'exemple (statuts + pacte SARL) : la correction L.223-14 est bien affichée, avec la vérification en direct dans Légifrance (PISTE).
 
 4. Point de validation de vendredi
 - Je confirme le point. Je vous transmettrai avant : les corrections apportées, les questions précises et les résultats à valider.

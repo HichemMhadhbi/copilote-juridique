@@ -68,6 +68,8 @@ enable_rag: true | false
   "rapport_id": "uuid-xxx",
   "date_analyse": "2026-07-16T14:32:15",
   "documents_analyses": [...],
+  "documents_manquants": ["Statuts de société (document de référence obligatoire)"],
+  "documents_illisibles": [...],
   "informations_principales": {...},
   "incoherences": [...],
   "anomalies_juridiques": [...],

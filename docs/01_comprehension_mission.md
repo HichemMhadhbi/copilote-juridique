@@ -3,6 +3,8 @@
 > Document de synthèse rédigé à l'issue des échanges avec le superviseur (Partie 3).
 > Stagiaire : [À compléter] | Période : 2 mois | Direction : [À compléter]
 
+> **Mise à jour (état actuel)** : ce document est le plan initial de la mission. Il a été ajusté pour refléter l'architecture réellement implémentée : pas de `rag/` ni de `llm/` (remplacés par `services/`), pas de FAISS/LangChain — la **recherche RAG-lite** interroge la base juridique localement, et l'IA optionnelle repose sur `services/llm_service.py` avec repli local. La base juridique contient **18 entrées réelles** vérifiées via Légifrance/PISTE.
+
 ---
 
 ## 1. Compréhension définitive de la mission
@@ -108,11 +110,11 @@ Le système doit être **indépendant** de l'application principale TOP-JURIDIQU
 │ Ingestion│Extraction│Comparaison│  Reporting    │
 │  & OCR   │& Classif.│& Règles  │  & Export     │
 ├──────────┴──────────┴──────────┴────────────────┤
-│         MOTEUR LLM & RAG                        │
-│    (LangChain + FAISS + HuggingFace)            │
+│           SERVICES (orchestration)              │
+│  analysis • document • legal_source • llm       │
 ├─────────────────────────────────────────────────┤
-│         BASE DE CONNAISSANCE JURIDIQUE           │
-│      (FAISS + embeddings juridiques)            │
+│    BASE DE CONNAISSANCE JURIDIQUE               │
+│     (RAG-lite : type doc + termes + domaine)    │
 ├─────────────────────────────────────────────────┤
 │         COUCHE VALIDATION HUMAINE               │
 │    (Workflow d'approbation + scoring)           │
@@ -122,20 +124,23 @@ Le système doit être **indépendant** de l'application principale TOP-JURIDIQU
 └─────────────────────────────────────────────────┘
 ```
 
+> Les couches `rag/` et `llm/` prévues au départ ont été remplacées par la couche `services/` : la recherche contextuelle est réalisée en **local** (RAG-lite sur la base juridique) et l'IA optionnelle (Groq/OpenRouter) est gérée par `services/llm_service.py` avec repli local.
+
 ### Modules principaux
 
 | Module | Responsabilité | Technologies |
 |--------|---------------|-------------|
-| `ingestion/` | Lecture PDF/Word, OCR, extraction texte | PyMuPDF, Tesseract, python-docx |
-| `extraction/` | Classification, NER, extraction structurée | spaCy, HuggingFace, regex |
-| `comparison/` | Comparaison multi-documents, détection écarts | Similarité sémantique, règles métier |
-| `rules_engine/` | Moteur de règles juridiques, conformité | Règles codées, patterns juridiques |
-| `legal_kb/` | Base de connaissances juridiques | FAISS, embeddings, sources officielles |
-| `rag/` | Retrieval-Augmented Generation | LangChain, FAISS, HuggingFace |
-| `llm/` | Génération d'analyse, reformulations | HuggingFace Transformers |
-| `report_generator/` | Génération de rapports PDF | ReportLab, Jinja2 |
-| `validation/` | Workflow de validation humaine | Interface Streamlit, scoring |
+| `ingestion/` | Lecture PDF/Word/images + OCR des PDF scannés | PyPDF2, Tesseract, pytesseract, python-docx |
+| `extraction/` | Classification, extraction structurée (regex) | Regex + règles, PyPDF2 |
+| `comparison/` | Comparaison multi-documents, détection écarts | Règles métier (dates, montants, parties, clauses) |
+| `rules_engine/` | Moteur de règles juridiques, conformité | 19 règles codées, patterns juridiques |
+| `legal_kb/` | Base de connaissances juridiques + **RAG-lite** | JSON structuré, recherche locale pondérée |
+| `services/` | Orchestration : analyse, lecture/classification, sources officielles (Légifrance/PISTE), IA optionnelle | FastAPI-compatible, OAuth2, repli local |
+| `report_generator/` | Génération de rapports | Markdown + ReportLab (PDF) |
+| `validation/` | Workflow de validation humaine | API + Streamlit |
 | `api/` | API REST pour intégration | FastAPI, Pydantic |
+
+> Les modules `rag/` (FAISS/LangChain) et `llm/` (HuggingFace) initialement prévus n'ont pas été retenus : la recherche est faite en local (RAG-lite) et l'IA est appelée à distance via `services/llm_service.py`.
 
 ---
 
@@ -145,27 +150,29 @@ Le système doit être **indépendant** de l'application principale TOP-JURIDIQU
 
 | Couche | Technologie | Justification |
 |--------|------------|---------------|
-| **Langage principal** | Python 3.11+ | Écosystème IA/ML dominant, bibliothèques juridiques disponibles |
-| **Framework LLM** | LangChain | Chaînes de traitement LLM, gestion de prompts, RAG intégré |
-| **Modèles** | HuggingFace Transformers | Modèles open-source (Mistral, CamemBERT, PhBERT) |
-| **Base vectorielle** | FAISS (Facebook AI Similarity Search) | Recherche sémantique performante, légère, locale |
-| **NLP / NER** | spaCy + modèles juridiques | Extraction d'entités, tokenisation, POS tagging |
+| **Langage principal** | Python 3.11+ | Écosystème IA/ML dominant, bibliothèques disponibles |
+| **RAG-lite** | Recherche locale pondérée (type de doc + termes + domaine) | Références contrôlées, zéro hallucination, aucun service cloud requis |
+| **IA optionnelle** | Groq (llama-3.3-70b), OpenRouter | Souveraineté, repli local automatique si échec/sans clé |
+| **Sources officielles** | API PISTE / Légifrance (OAuth2) | Vérification réelle des références juridiques |
+| **NLP / extraction** | Regex + règles | Extraction des clauses, dates, montants, parties (évolutions spaCy possibles) |
 | **Interface web** | Streamlit | Prototypage rapide, UI interactive, data science |
-| **Rapports PDF** | ReportLab | Génération de PDF professionnels avec mise en forme |
+| **Rapports PDF** | ReportLab + Markdown | Génération de PDF professionnels avec mise en forme |
 | **API** | FastAPI | API REST performante, auto-documentée, async |
 | **Base de données** | SQLite (dev) / PostgreSQL (prod) | Métadonnées, historique, sessions |
-| **OCR** | Tesseract + PyMuPDF | Extraction texte de PDF scannés |
+| **OCR** | Tesseract + pytesseract | OCR réel des PDF scannés et images (français) |
 | **Tests** | pytest | Tests unitaires et d'intégration |
-| **Gestion de config** | Pydantic Settings | Validation des configurations |
+| **Gestion de config** | python-dotenv + Pydantic | Validation des configurations |
+
+> **Évolutions écartées au prototype** : LangChain, FAISS et les embeddings HuggingFace ne sont pas utilisés (la recherche RAG-lite suffit et évite toute dépendance lourde) ; leur intégration reste possible en extension future.
 
 ### Choix du modèle LLM
 
-Pour un usage juridique en français, les modèles prioritaires seront :
-1. **Mistral-7B** (ou variantes fine-tunées) — excellent rapport performance/taille
-2. **CamemBERT** — NLP français, embeddings
-3. **PhBERT / Legal-BERT** — si disponible pour le domaine juridique
+Pour un usage juridique en français, l'IA repose sur des API distantes avec **repli local automatique** :
+1. **Groq (llama-3.3-70b)** — prioritaire, rapide
+2. **OpenRouter** — secours si la clé Groq est absente/invalide
+3. **Repli local déterministe** — si aucun fournisseur ne répond, l'analyse est produite localement (aucun blocage, aucune référence inventée)
 
-Le système doit être conçu pour être **agnostic vis-à-vis du modèle** : possibilité de changer de LLM sans refonte majeure.
+Le système est **agnostic vis-à-vis du modèle** : il suffit de configurer une clé dans `.env` pour changer de fournisseur sans refonte majeure.
 
 ---
 
@@ -184,11 +191,11 @@ Le système doit être conçu pour être **agnostic vis-à-vis du modèle** : po
 - Enrichissement métadonnées (code, date, domaine, mots-clés)
 - Tagging par catégorie juridique (sociétés, obligations, travail, etc.)
 
-### Étape 3 : Embedding et indexation (Semaine 5-6)
+### Étape 3 : Structuration et indexation (Semaine 5-6)
 
-- Génération des **embeddings** avec un modèle juridique (CamemBERT ou Mistral)
-- Indexation dans **FAISS** pour recherche sémantique
-- Création d'un index secondaire par mots-clés pour recherche hybride
+- Structuration en **entrées JSON** (schéma `legal_kb/schema.json`) : article, domaine, mots-clés, types de documents, règles de contrôle
+- **Recherche RAG-lite** (`knowledge_base.search_relevant`) : classement par type de document + termes de l'anomalie + domaine — aucune indexation vectorielle requise
+- Création d'un index par mots-clés pour recherche hybride
 
 ### Étape 4 : Validation et enrichissement (Semaine 6-7)
 
@@ -234,16 +241,15 @@ Le système doit être conçu pour être **agnostic vis-à-vis du modèle** : po
 - Identification des clauses manquantes
 - Scoring de sévérité des écarts
 
-### Semaine 5 — Base de connaissances juridiques (RAG)
-- Collecte et structuration des sources juridiques
-- Génération des embeddings
-- Indexation FAISS
-- Intégration LangChain pour le RAG
+### Semaine 5 — Base de connaissances juridique (RAG-lite)
+- Collecte et structuration des sources juridiques (entrées JSON réelles)
+- Recherche locale par type de document + termes + domaine
+- Rattachement des références à Légifrance/PISTE
 - Tests de recherche et pertinence
 
-### Semaine 6 — Module LLM et analyse
-- Intégration des modèles HuggingFace
-- Chaîne d'analyse juridique (prompts structurés)
+### Semaine 6 — Module IA et analyse
+- Intégration des fournisseurs IA (Groq, OpenRouter) avec repli local
+- Chaîne d'analyse (synthèse, analyse de clauses)
 - Génération de recommandations
 - Détection des risques
 - Propositions d'amélioration
@@ -322,8 +328,8 @@ Finalisation                                ████████
 | L3 | Module d'extraction structurée (NER) | P0 | S3 | Réalisable |
 | L4 | Module de comparaison multi-documents | P0 | S4 | Réalisable |
 | L5 | Moteur de règles juridiques (v1) | P1 | S4 | Réalisable |
-| L6 | Base de connaissances juridiques (v1) | P1 | S5 | Réalisable |
-| L7 | Module d'analyse LLM (RAG) | P0 | S6 | Réalisable |
+| L6 | Base de connaissances juridiques (v1) | P1 | S5 | Réalisé (18 entrées réelles) |
+| L7 | Module d'analyse IA (optionnel, repli local) | P0 | S6 | Réalisable |
 | L8 | Générateur de rapports PDF | P1 | S7 | Réalisable |
 | L9 | Interface Streamlit (POC) | P1 | S7 | Réalisable |
 | L10 | API REST (FastAPI) | P2 | S7-8 | Réalisable |
@@ -336,8 +342,8 @@ Finalisation                                ████████
 | T2 | Tests unitaires | Couverture minimale 70% sur modules critiques |
 | T3 | Documentation technique | Architecture, API, guide d'installation |
 | T4 | Démonstrateur fonctionnel | Cas d'usage complet (pacte vs statuts SAS) |
-| T5 | Base juridique v1 | FAISS index avec sources juridiques de base |
-| T6 | Configuration modèles | Fichiers de config pour changement de LLM |
+| T5 | Base juridique v1 | 18 entrées réelles (Code de commerce, Code civil) interrogées via RAG-lite |
+| T6 | Configuration modèles | Clés API dans `.env` (Groq, OpenRouter), repli local |
 
 ### Livrables documentaires
 

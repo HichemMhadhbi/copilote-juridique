@@ -1,37 +1,47 @@
 # 05 — Base de Connaissances Juridique
 
+> **Mise à jour (état actuel)** : la base contient **18 entrées réelles** (10 droit des sociétés, 8 pactes d'associés), interrogées à chaque analyse via la **recherche RAG-lite** (`knowledge_base.search_relevant`). Aucune référence n'est fictive ni inventée.
+
 ## Vue d'ensemble
 
 La base de connaissances juridique de TOP-JURIDIQUE fournit le référentiel normatif
-utilisé par le moteur de règles et le pipeline RAG pour contextualiser les analyses.
+utilisé par le moteur de règles et par la **recherche RAG-lite** pour contextualiser les analyses.
 
 ## Schéma de la base
 
 ```
 legal_kb/
-├── data/
-│   ├── codes/                  # Textes de loi (Code civil, Code de commerce...)
-│   ├── jurisprudence/          # Arrêts et décisions de justice
-│   ├── doctrines/              # Articles de doctrine juridique
-│   ├── conventions_collectives/# Conventions collectives par branche
-│   └── indexes.json            # Index de recherche par mots-clés
+├── schema.json                # Schéma JSON de validation
+├── knowledge_base.py          # Gestion + recherche RAG-lite (search_relevant)
+└── data/
+    ├── societes.json          # 10 entrées — droit des sociétés (Code de commerce)
+    └── pactes.json            # 8 entrées — pactes d'associés (Code civil / proc. civile)
 ```
 
 ### Structure d'une entrée
 
-Chaque entrée de la base suit le schéma JSON suivant :
+Chaque entrée de la base suit le schéma JSON suivant (`legal_kb/schema.json`) :
 
 ```json
 {
-  "id": "CIV-1843-4",
-  "source": "code_civil",
-  "titre": "Article 1843-4 du Code civil",
-  "texte": "En cas de cession à titre onéreux de parts sociales souscrites...",
-  "reference": "Legifrance",
-  "date_modification": "2024-01-15",
-  "tags": ["cession", "parts_sociales", "agrément", "société"],
-  "applicable_a": ["pacte_associes", "statuts", "contrat_commercial"],
-  "niveau_confiance": 0.95
+  "id": "SOC-001",
+  "source": "Code de commerce",
+  "titre_texte": "Code de commerce — Gérance de SARL",
+  "numero_article": "Art. L223-18",
+  "version": "2024",
+  "date_entree_vigueur": "2024-01-01",
+  "date_abrogation": null,
+  "domaine": "droit des sociétés",
+  "mots_cles": ["gérance", "SARL", "nomination", "pouvoirs", "représentation légale"],
+  "types_documents_concernes": ["statuts", "pacte_associes"],
+  "regles_controle": [
+    {
+      "type_regle": "conformité",
+      "description": "Vérifier que les statuts désignent nommément le ou les gérants et précisent l'étendue de leurs pouvoirs.",
+      "priorite": "bloquant",
+      "correction_recommandee": "Ajouter la désignation du gérant et la limite de ses pouvoirs."
+    }
+  ]
 }
 ```
 
@@ -39,98 +49,73 @@ Chaque entrée de la base suit le schéma JSON suivant :
 
 | Champ | Type | Description |
 |-------|------|-------------|
-| `id` | string | Identifiant unique de l'entrée |
-| `source` | enum | Origine (code_civil, jurisprudence, doctrine...) |
-| `titre` | string | Titre de la référence |
-| `texte` | string | Texte intégral ou extrait |
-| `reference` | string | Source officielle (Legifrance, PISTE...) |
-| `tags` | list[str] | Mots-clés pour la recherche |
-| `applicable_a` | list[str] | Types de documents concernés |
+| `id` | string | Identifiant unique de l'entrée (ex. SOC-001) |
+| `source` | string | Source officielle (Code de commerce, Légifrance…) |
+| `titre_texte` | string | Titre complet du texte de référence |
+| `numero_article` | string | Numéro de l'article concerné |
+| `version` | string | Version ou millésime du texte |
+| `date_entree_vigueur` | date | Date d'entrée en vigueur |
+| `date_abrogation` | date\|null | Date d'abrogation éventuelle |
+| `domaine` | string | Domaine juridique (droit des sociétés, droit commercial…) |
+| `mots_cles` | list[str] | Mots-clés pour la recherche |
+| `types_documents_concernes` | list[str] | Types de documents auxquels la règle s'applique |
+| `regles_controle` | list[object] | Règles de contrôle associées (type, description, priorité, correction recommandée) |
 
 ## Sources de données
 
-### Sources actuelles (fictives pour MVP)
+### Sources actuelles (implémentées)
 
-- **Légifrance** — Base officielle de la legislation française (https://www.legifrance.gouv.fr)
-  - Pour le MVP, des extraits fictifs mais réalistes sont utilisés
-  - Phase 2 : API Légifrance pour la mise à jour automatique
+- **Légifrance / PISTE** — Base officielle de la législation française (https://www.legifrance.gouv.fr)
+  - Les 18 entrées sont des **articles réels** (ex. Art. L223-14, Art. 1103 C. civ, Art. 1530 C. proc. civ)
+  - Vérification officielle : `services/legal_source_service.py` obtient un jeton PISTE (OAuth2) et vérifie chaque référence (identifiant LEGIARTI, texte officiel) ou renvoie un lien de recherche Légifrance
 
-- **PISTE** — Plateforme Interbancaire des Titres Électroniques
-  - Données de référence pour les structures de capital
-  - Phase 2 : intégration API
+### Sources futures (évolutions)
 
-- **Doctrines juridiques** — Extraits de traités et articles de doctrine
-  - Sources : Dalloz, Recueil Sirey, JCP
-  - Phase 2 : connexion aux bases payantes
-
-### Sources futures (Phase 2+)
-
-- API Légifrance officielle
-- Base de jurisprudence Cour de cassation
+- Étendre aux procès-verbaux, décisions sociales, modifications statutaires, contrats commerciaux, baux
+- Doctrine et jurisprudence (Dalloz, Cour de cassation)
 - Conventions collectives IDCC
-- Guides AMF / ACPR
 
 ## Méthode de mise à jour
 
-### Mise à jour manuelle (Phase 1)
+### Mise à jour manuelle
 
 ```bash
-# Import d'un fichier JSON dans la base
-python -m legal_kb.import --file=new_entries.json --source=doctrine
-
-# Vérification de la cohérence
-python -m legal_kb.validate --check=all
+# Ajout d'une entrée : modifier data/societes.json ou data/pactes.json en respectant schema.json
+# Validation du format : les tests test_knowledge_base.py vérifient la conformité au schéma
 ```
 
-### Mise à jour automatique (Phase 2 — prévu)
+### Mise à jour automatique (prévue)
 
 ```python
-from legal_kb.updater import KnowledgeBaseUpdater
+from services.legal_source_service import LegalSourceService
 
-updater = KnowledgeBaseUpdater()
-updater.fetch_from_legifrance(dates=["2024-01-01", "2024-12-31"])
-updater.validate_and_merge()
+service = LegalSourceService()
+service.fetch_and_update(article_refs=["L223-14", "1103", "1530"])
 ```
 
 ## Exemples d'entrées
 
-### Article 1843-4 du Code civil
+### SOC-001 — Gérance de SARL (Code de commerce, Art. L223-18)
 
 ```json
 {
-  "id": "CIV-1843-4",
-  "source": "code_civil",
-  "titre": "Article 1843-4 — Cession de parts sociales",
-  "texte": "En cas de cession à titre onéreux de parts sociales souscrites par des associés n'ayant pas la qualité de commerçants, la nullité de la cession pour défaut de consentement d'un ou de plusieurs associés ne peut être opposée par ceux-ci aux tiers agissant en justice.",
-  "reference": "Legifrance — Législation en vigueur",
-  "date_modification": "2024-01-15",
-  "tags": ["cession", "parts_sociales", "consentement", "nullité"],
-  "applicable_a": ["pacte_associes", "statuts"],
-  "niveau_confiance": 0.95
+  "id": "SOC-001",
+  "source": "Code de commerce",
+  "titre_texte": "Code de commerce — Gérance de SARL",
+  "numero_article": "Art. L223-18",
+  "domaine": "droit des sociétés",
+  "mots_cles": ["gérance", "SARL", "nomination", "pouvoirs", "représentation légale"],
+  "types_documents_concernes": ["statuts", "pacte_associes"]
 }
 ```
 
-### Article L. 231-1 du Code de commerce
+### Entrée pacte — Règles de contrôle associées aux pactes (Code civil)
 
-```json
-{
-  "id": "COM-L231-1",
-  "source": "code_commerce",
-  "titre": "Article L. 231-1 — Clause de sortie conjointe",
-  "texte": "Toute société peut prévoir dans ses statuts des clauses de sortie conjointe (tag-along) et de sortie forcée (drag-along).",
-  "reference": "Legifrance — Code de commerce",
-  "date_modification": "2023-06-01",
-  "tags": ["tag-along", "drag-along", "cession", "protection"],
-  "applicable_a": ["pacte_associes"],
-  "niveau_confiance": 0.90
-}
-```
+Les 8 entrées de `data/pactes.json` couvrent par exemple l'agrément des cessions de parts, les clauses de sortie, la non-concurrence et les mécanismes de résolution de blocage, avec les règles de contrôle rattachées.
 
 ## Utilisation par le pipeline
 
-1. **Moteur de règles** — Consulte la base pour vérifier la conformité
-   des clauses par rapport aux textes de loi
-2. **Pipeline RAG** — Utilise les embeddings FAISS pour retrouver les
-   références pertinentes lors de l'analyse contextuelle
-3. **Générateur de rapports** — Cite les sources juridiques dans
-   les recommandations et les anomalies détectées
+1. **Moteur de règles** — Consulte la base pour rattacher les références aux anomalies
+2. **RAG-lite** — `knowledge_base.search_relevant(type_document, texte_anomalie)` classe les entrées par **type de document + termes + domaine** et renvoie les articles et règles de contrôle pertinents (sans service cloud, zéro hallucination)
+3. **Vérification officielle** — `legal_source_service.py` relie chaque référence à Légifrance (lien de recherche ou vérification PISTE)
+4. **Générateur de rapports** — Cite les sources juridiques dans les recommandations et les anomalies détectées

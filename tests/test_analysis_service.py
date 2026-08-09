@@ -72,3 +72,41 @@ def test_statuts_seuls_documents_a_verifier():
             f"documents_a_verifier inattendu : {a['documents_a_verifier']}"
         )
         assert "non spécifié" not in str(a["documents_a_verifier"])
+
+
+def test_pacte_seul_documents_manquants():
+    """Un pacte sans statuts : les statuts sont signalés manquants."""
+    texte = _pacte_texte()
+    rapport = analyze_documents({"pacte_test.pdf": texte}, {"pacte_test.pdf": "natif"})
+
+    assert rapport["documents_manquants"], (
+        "Un dossier ne contenant qu'un pacte doit signaler les statuts manquants"
+    )
+    assert any("Statuts" in d for d in rapport["documents_manquants"])
+
+
+def test_dossier_complet_aucun_document_manquant():
+    """Pacte + statuts : dossier complet, rien de manquant."""
+    rapport = analyze_documents(
+        {"pacte_test.pdf": _pacte_texte(), "statuts_test.pdf": _statuts_texte()},
+        {"pacte_test.pdf": "natif", "statuts_test.pdf": "natif"},
+    )
+    assert rapport["documents_manquants"] == []
+
+
+def test_statuts_seuls_aucun_document_manquant():
+    """Des statuts seuls : rien de manquant (le pacte est optionnel)."""
+    rapport = analyze_documents(
+        {"statuts_test.pdf": _statuts_texte()},
+        {"statuts_test.pdf": "natif"},
+    )
+    assert rapport["documents_manquants"] == []
+
+
+def test_documents_non_societe_aucun_document_manquant():
+    """Des documents non-société (cours/manuels) : aucune complétude exigée."""
+    rapport = analyze_documents(
+        {"cours.pdf": "Introduction au droit des contrats, chapitre 1."},
+        {"cours.pdf": "natif"},
+    )
+    assert rapport["documents_manquants"] == []

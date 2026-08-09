@@ -101,25 +101,25 @@ Ce dossier contient toute la logique métier, appelée par les 3 interfaces.
 
 | Fichier | Rôle |
 |---|---|
-| `rules.py` | Les **règles de contrôle** elles-mêmes : agrément de cession de parts, clause de non-concurrence, majorité des décisions, veto bloquant, cohérence pacte/statuts, responsabilité du gérant… Comparaisons insensibles aux accents. |
+| `rules.py` | Les **règles de contrôle** elles-mêmes (16) : agrément de cession de parts, clause de non-concurrence, majorité des décisions, veto bloquant, cohérence pacte/statuts, responsabilité du gérant… + **règles de risques futurs** (valorisation des titres en sortie, décès/incapacité d'un associé, non-paiement). Comparaisons insensibles aux accents. |
 | `rule_checker.py` | **Applique les règles** sur les données extraites et produit les anomalies. Gère correctement les cas où un seul document est présent (les règles concernées ne tournent que si le document existe). |
 
 ### 3.7 `legal_kb/` — base de connaissances juridique
 
 | Fichier | Rôle |
 |---|---|
-| `knowledge_base.py` | Charge la base juridique et fournit les références aux règles. |
+| `knowledge_base.py` | Charge la base juridique (18 entrées) et fournit la **recherche RAG-lite** `search_relevant` : pour chaque anomalie, les entrées pertinentes sont classées par type de document + termes + domaine, sans service cloud. |
 | `data/societes.json` | Références du droit des sociétés (Code de commerce). |
 | `data/pactes.json` | Références des pactes d'associés. |
 | `schema.json` | Schéma (format) des entrées de la base. |
 
-> ⚠️ Les références sont **fictives** pour le prototype : en production, elles seront remplacées par de vraies références Légifrance/PISTE. Le choix est assumé pour **éviter toute invention** du LLM.
+> ✔️ Les 18 entrées sont des **références réelles**, interrogées par le pipeline (RAG-lite) et rattachées à Légifrance via `services/legal_source_service.py` (lien de recherche ou vérification officielle PISTE si configuré). Aucune référence n'est inventée.
 
 ### 3.8 `report_generator/` — génération du rapport
 
 | Fichier | Rôle |
 |---|---|
-| `report_builder.py` | Construit le **rapport structuré** : documents analysés, incohérences, anomalies, niveau de risque global. |
+| `report_builder.py` | Construit le **rapport structuré** : documents analysés, **documents manquants**, incohérences, anomalies, niveau de risque global. |
 | `report_export.py` | Convertit le rapport en **Markdown** (lisible par un juriste) et en **PDF**. |
 
 ### 3.9 `validation/` — validation humaine
@@ -149,10 +149,10 @@ Ce dossier contient toute la logique métier, appelée par les 3 interfaces.
 | `test_extraction.py` | Extraction des entités et clauses. |
 | `test_rules_engine.py` | Règles juridiques, y compris les cas mono-document et la robustesse aux accents. |
 | `test_comparison.py` | Comparaison entre documents. |
-| `test_analysis_service.py` | Pipeline d'analyse complet (dont la liste des documents à vérifier). |
+| `test_analysis_service.py` | Pipeline d'analyse complet (documents à vérifier, documents manquants). |
 | `test_llm_fallback.py` | Repli LLM sans clé API. |
 
-> **44 tests** unitaires, tous verts : `python -m pytest tests -q`
+> **131 tests** unitaires, tous verts : `python -m pytest tests -q`
 
 ### 3.13 Documentation et livrables
 
@@ -175,6 +175,8 @@ Voici le chemin exact d'un document, du dépôt au rapport final.
 
 Le fichier est lu. S'il s'agit d'un PDF scanné sans texte, l'OCR est tenté (sinon repli gracieux). Le **type de document** est détecté automatiquement (pacte d'associés, statuts, PV, modification statutaire…).
 
+Si le dossier contient des documents de société mais **pas de statuts** (document de référence obligatoire), ceux-ci sont signalés dans `report.documents_manquants` — l'analyse comparative pacte/statuts ne peut pas être complète sans eux.
+
 ### Étape 2 — Extraction structurée
 **Fichiers :** `extraction/entity_extractor.py`, `extraction/clause_extractor.py`
 
@@ -190,10 +192,15 @@ Si plusieurs documents sont fournis (ex. pacte **et** statuts), on les **croise*
 
 Chaque document est passé au crible des **règles de contrôle**. Chaque anomalie détectée (clause manquante, risque, contradiction) reçoit : explication, priorité, conséquence, correction recommandée, source juridique.
 
-### Étape 5 — Références juridiques
+### Étape 5 — Références juridiques (RAG-lite)
 **Fichiers :** `legal_kb/knowledge_base.py`, `services/legal_source_service.py`
 
-Chaque anomalie est reliée à une **référence de la base juridique** (texte de loi, lien Légifrance). Base contrôlée → aucune hallucination du LLM.
+Chaque anomalie **interroge la base juridique** (`search_relevant`) : type de document + termes de l'anomalie + domaine → les entrées pertinentes (articles, règles de contrôle associées) sont rattachées à l'anomalie. Le rapport indique le nombre d'entrées mobilisées. Ensuite, `legal_source_service.py` relie chaque référence à Légifrance (lien de recherche, ou vérification officielle via PISTE si configuré). Base contrôlée → aucune hallucination du LLM.
+
+### Étape 5 bis — Analyse des clauses (IA)
+**Fichiers :** `services/llm_service.py`
+
+Chaque clause du pacte/statuts reçoit un niveau de risque (faible / modéré / élevé), une **analyse** et une **amélioration argumentée**, avec le fondement juridique. En l'absence de clé API, l'analyse locale déterministe garantit un rendu identique (aucun blocage).
 
 ### Étape 6 — Génération du rapport
 **Fichiers :** `report_generator/report_builder.py`, `report_generator/report_export.py`, `services/export_service.py`
@@ -232,7 +239,9 @@ Groq (llama-3.3-70b)  →  OpenRouter (secours)  →  Génération locale (derni
 |---|---|
 | **1 pipeline, 3 interfaces** | Pas de code dupliqué, comportement identique partout |
 | **Règles déterministes** | Résultats reproductibles et expliquables (important en droit) |
-| **Références juridiques contrôlées** | Pas d'invention du LLM, fiabilité |
+| **RAG-lite** | Chaque anomalie mobilise réellement la base juridique (articles + règles de contrôle) sans service cloud |
+| **Analyse des clauses (IA)** | Chaque clause reçoit risque + analyse + amélioration argumentée, avec repli local |
+| **Références juridiques contrôlées** | Pas d'invention du LLM, fiabilité, vérification officielle Légifrance/PISTE |
 | **Validation humaine obligatoire** | L'IA assiste, le juriste décide |
 | **Repli multi-LLM + local** | L'outil ne plante jamais faute de clé API |
 | **Robustesse** | Accents gérés, OCR indisponible géré, mono-document géré |
@@ -243,16 +252,17 @@ Groq (llama-3.3-70b)  →  OpenRouter (secours)  →  Génération locale (derni
 ## 7. Tests
 
 ```bash
-python -m pytest tests -q    # 44 tests, tous verts
+python -m pytest tests -q    # 131 tests, tous verts
 ```
 
 | Suite | Couvre |
 |---|---|
 | `test_extraction.py` | Dates, montants, parties, clauses, cas vides |
-| `test_rules_engine.py` | Règles, cas mono-document, robustesse aux accents |
+| `test_rules_engine.py` | 19 règles (dont 6 risques futurs), cas mono-document, robustesse aux accents |
+| `test_knowledge_base.py` | Base juridique, recherche RAG-lite, intégration pipeline |
 | `test_comparison.py` | Comparaison pacte/statuts |
 | `test_analysis_service.py` | Pipeline complet, documents à vérifier |
-| `test_llm_fallback.py` | Repli LLM sans clé |
+| `test_llm_fallback.py` | Repli LLM sans clé, analyse de clauses |
 
 ---
 

@@ -65,11 +65,11 @@ Concurrentes directes de la partie « formalités » de TOP-JURIDIQUE, mais sans
 | Besoin du juriste | Solutions existantes | Nous |
 |-------------------|---------------------|------|
 | Analyser le contenu juridique d'un dossier | Certaines (Jimini) | ✅ intégré au dossier |
-| Détecter les failles et risques (immédiats et futurs) | Presque aucune | ✅ 8 règles déterministes |
+| Détecter les failles et risques (immédiats et futurs) | Presque aucune | ✅ 19 règles déterministes |
 | Comparer 2 documents (pacte vs statuts) | Non | ✅ comparaison automatique |
 | Contrôler la conformité aux formalités (Kbis, RCS...) | Non | ✅ à construire avec Pappers/Légifrance |
-| Sources officielles citées (Légifrance/PISTE) | Partiellement | ✅ prévu |
-| Validation humaine obligatoire | Non | ✅ prévu |
+| Sources officielles citées (Légifrance/PISTE) | Partiellement | ✅ vérifiées via PISTE (OAuth2) ou liens Légifrance |
+| Validation humaine obligatoire | Non | ✅ implémentée |
 | Fonctionner sans envoyer de données à l'extérieur | Rare | ✅ repli local 100 % |
 
 ---

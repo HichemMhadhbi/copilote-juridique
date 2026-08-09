@@ -220,6 +220,14 @@ def render_analysis_mode():
         report.get("informations_principales", {}).get("statut_lecture", {}),
     )
 
+    docs_manquants = report.get("documents_manquants", [])
+    if docs_manquants:
+        st.warning(
+            "**Documents manquants :** " + ", ".join(f"**{d}**" for d in docs_manquants)
+            + "\n\nL'analyse comparative (pacte vs statuts) ne peut pas être complète "
+            "sans ce document. À fournir pour une analyse exhaustive."
+        )
+
     infos = report.get("informations_principales", {})
     qualites = infos.get("qualite_documents", {})
     problemes = [

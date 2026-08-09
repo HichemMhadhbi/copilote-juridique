@@ -10,10 +10,21 @@ from __future__ import annotations
 
 import json
 import os
+import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 _KB_DIR = Path(__file__).resolve().parent / "data"
+
+
+def _normaliser(texte: str) -> str:
+    """Minuscules sans accents (les extractions PDF perdent souvent les accents)."""
+    if not texte:
+        return ""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", texte.lower())
+        if unicodedata.category(c) != "Mn"
+    )
 
 
 class LegalKnowledgeBase:
@@ -112,6 +123,81 @@ class LegalKnowledgeBase:
             if entry.get("numero_article", "").lower() == article_id.lower():
                 return entry.get("regles_controle", [])
         return []
+
+    def search_relevant(
+        self,
+        query_terms: List[str],
+        doc_type: Optional[str] = None,
+        domain: Optional[str] = None,
+        top_k: int = 3,
+    ) -> List[Dict[str, Any]]:
+        """
+        Recherche par pertinence (RAG-lite) dans la base de connaissance.
+
+        Classe les entrées selon trois critères pondérés :
+        - le type de document concerné (poids fort) ;
+        - la présence des termes de la requête dans les mots-clés, le titre
+          ou l'article de l'entrée ;
+        - la correspondance de domaine juridique.
+
+        Les entrées sans aucune correspondance sont écartées ; si aucune
+        entrée ne correspond aux termes, on retombe sur les entrées du type
+        de document demandé (pour éviter une base "consultée mais vide").
+        Ne fait aucun appel réseau et ne requiert aucun embedding : le
+        modèle (tout-MiniLM-L6-v2) peut y être branché plus tard sans changer
+        la signature.
+
+        Args:
+            query_terms: Termes de la requête (ex. mots d'une anomalie).
+            doc_type: Type de document (ex. "statuts", "pacte_associes").
+            domain: Domaine juridique optionnel (ex. "droit des sociétés").
+            top_k: Nombre maximum d'entrées retournées.
+
+        Returns:
+            Entrées de la base classées par pertinence décroissante.
+        """
+        if not self._entries:
+            return []
+        terms = {_normaliser(t) for t in (query_terms or []) if t and t.strip()}
+        doc_lower = _normaliser(doc_type)
+
+        def _matche_type(entry: Dict[str, Any]) -> bool:
+            if not doc_lower:
+                return False
+            return any(
+                doc_lower == _normaliser(t)
+                for t in entry.get("types_documents_concernes", [])
+            )
+
+        def _score(entry: Dict[str, Any]) -> int:
+            score = 0
+            if _matche_type(entry):
+                score += 3
+            if domain and _normaliser(domain) in _normaliser(entry.get("domaine", "")):
+                score += 1
+            if terms:
+                corpus: List[str] = [
+                    _normaliser(m) for m in entry.get("mots_cles", [])
+                ]
+                corpus.append(_normaliser(entry.get("titre_texte", "")))
+                corpus.append(_normaliser(entry.get("numero_article", "")))
+                corpus.append(_normaliser(entry.get("domaine", "")))
+                texte = " ".join(corpus)
+                for term in terms:
+                    if term in texte:
+                        score += 2
+            return score
+
+        scored = sorted(self._entries, key=_score, reverse=True)
+        pertinentes = [e for e in scored if _score(e) > 0]
+        if not pertinentes:
+            pertinentes = [e for e in scored if _matche_type(e)]
+        if not pertinentes and domain:
+            pertinentes = [
+                e for e in scored
+                if _normaliser(domain) in _normaliser(e.get("domaine", ""))
+            ]
+        return pertinentes[:top_k]
 
     def get_all_entries(self) -> List[Dict[str, Any]]:
         """Retourne l'intégralité des entrées chargées."""

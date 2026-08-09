@@ -12,10 +12,10 @@ Une application qui analyse des documents juridiques (pactes d'associés, statut
 
 ### Chiffres clés
 - **~6 700 lignes de code Python** (30+ fichiers)
-- **39 tests automatisés** qui passent tous
-- **6 formats de fichiers** supportés : PDF, Word (docx), images (PNG/JPG/JPEG), texte (TXT)
-- **8 règles de contrôle** juridiques déterministes
-- **18 entrées** dans la base juridique (schéma + données)
+- **131 tests automatisés** qui passent tous
+- **6 formats de fichiers** supportés : PDF, Word (docx), images (PNG/JPG/JPEG), texte (TXT), PDF scannés (OCR Tesseract)
+- **19 règles de contrôle** juridiques déterministes (dont 6 règles de risques futurs)
+- **18 entrées** dans la base juridique, **réellement interrogées** à chaque analyse (RAG-lite)
 - **3 fournisseurs IA** configurables (Groq, Google AI, OpenRouter) avec repli local automatique
 - **4 formats d'export** : PDF, Markdown, JSON, texte
 - **6 documents de documentation**
@@ -29,15 +29,16 @@ Une application qui analyse des documents juridiques (pactes d'associés, statut
 
 ## 2. Comment ça marche (le pipeline)
 
-L'analyse se fait en 6 étapes, comme une chaîne de montage :
+L'analyse se fait en 7 étapes, comme une chaîne de montage :
 
 ```
-1. Ingestion    → lire le fichier (PDF, Word, image, texte)
-2. Classification → deviner le type de document (pacte, statuts, autre)
+1. Ingestion    → lire le fichier (PDF, Word, image, texte, PDF scanné via OCR)
+2. Classification → deviner le type de document (pacte, statuts, autre) + signaler les **documents manquants** (ex. statuts absent d'un dossier de société)
 3. Extraction   → trouver les dates, montants, parties, clauses
 4. Comparaison  → comparer 2 documents entre eux (pacte vs statuts)
-5. Règles       → appliquer 8 règles de contrôle juridique
-6. Rapport      → construire le rapport final (avec synthèse IA optionnelle)
+5. Règles       → appliquer 19 règles de contrôle juridique (dont 6 règles de risques futurs)
+6. RAG-lite     → interroger la base juridique (articles + règles de contrôle) pour chaque anomalie
+7. Rapport      → construire le rapport final (avec synthèse IA optionnelle)
 ```
 
 Le tout est orchestré par `services/analysis_service.py` (fonction `analyze_documents`).
@@ -49,9 +50,7 @@ Le tout est orchestré par `services/analysis_service.py` (fonction `analyze_doc
 ### `ingestion/` — Lire les documents
 | Fichier | Rôle |
 |---------|------|
-| `pdf_reader.py` | Extrait le texte des PDF (PyPDF2), nettoie le bruit (numéros de page, codes d'édition...) |
-| `ocr_engine.py` | OCR des PDF scannés (structure prête, moteur réel à brancher) |
-| `document_classifier.py` | Détecte le type de document (pacte/statuts/autre) par mots-clés pondérés |
+| `ocr_engine.py` | **OCR réel des PDF scannés et images** (Tesseract, français) — texte extrait puis analysé comme un PDF natif |
 
 ### `extraction/` — Extraire les informations
 | Fichier | Rôle |
@@ -67,8 +66,8 @@ Le tout est orchestré par `services/analysis_service.py` (fonction `analyze_doc
 ### `rules_engine/` — Les règles de contrôle (cœur métier)
 | Fichier | Rôle |
 |---------|------|
-| `rules.py` | **Les 8 règles** : ① clause d'agrément, ② clause de sortie, ③ droit de veto, ④ majorités de décision, ⑤ non-concurrence, ⑥ contradiction pacte/statuts, ⑦ clause de blocage, ⑧ pouvoirs du gérant |
-| `rule_checker.py` | Orchestrateur : applique les règles sur le pacte et les statuts, déduplique les résultats |
+| `rules.py` | **Les 19 règles** : ① clause d'agrément, ② clause de sortie, ③ droit de veto, ④ majorités de décision, ⑤ non-concurrence, ⑥ contradiction pacte/statuts, ⑦ clause de blocage, ⑧ pouvoirs du gérant, ⑨ PV/quorum, ⑩ PV/résolutions, ⑪ modification statutaire, ⑫ champs à compléter, ⑬ formulations/forme, et 6 règles de risques futurs : ⑭ valorisation des titres en sortie, ⑮ décès/incapacité d'un associé, ⑯ non-paiement (impayé), ⑰ confidentialité / secret des affaires, ⑱ résiliation (durée sans issue), ⑲ déséquilibre de gouvernance. |
+| `rule_checker.py` | Orchestrateur : applique les règles sur le pacte et les statuts, déduplique les résultats, adapte les règles à la forme sociale (SAS/SARL/SCI…) |
 
 ### `legal_kb/` — La base de connaissances juridique
 | Fichier | Rôle |
@@ -76,19 +75,8 @@ Le tout est orchestré par `services/analysis_service.py` (fonction `analyze_doc
 | `schema.json` | Le schéma de chaque entrée (source, article, version, dates de vigueur, mots-clés, règles) |
 | `data/societes.json` | 10 entrées droit des sociétés |
 | `data/pactes.json` | 8 entrées pactes d'associés |
-| `knowledge_base.py` | Classe de gestion (lecture, recherche, ajout) |
-| ⚠️ Attention | Les références actuelles sont **fictives** ; en production elles seront remplacées par de vraies références Légifrance/PISTE |
-
-### `rag/` — La recherche intelligente dans les documents
-| Fichier | Rôle |
-|---------|------|
-| `embeddings.py` | Vecteurs de texte (sentence-transformers, modèle léger multilingue) |
-| `vector_store.py` | Index vectoriel FAISS (rapide, local, sans cloud) pour retrouver les passages pertinents |
-
-### `llm/` — Les modèles de langage (couche IA)
-| Fichier | Rôle |
-|---------|------|
-| `llm_factory.py` | Factory : choisit Groq / Google AI / OpenRouter selon les clés configurées |
+| `knowledge_base.py` | Classe de gestion (lecture, recherche, ajout) + **recherche RAG-lite** `search_relevant` : pour chaque anomalie, les entrées pertinentes (articles + règles de contrôle associées) sont classées par type de document + termes + domaine, sans service cloud |
+| ✔️ Références | Les 18 entrées sont **réellement interrogées** à chaque analyse (le rapport indique le nombre d'entrées mobilisées) ; les liens Légifrance sont rattachés à l'analyse via `services/legal_source_service.py` |
 
 ### `report_generator/` — Le rapport
 | Fichier | Rôle |
@@ -112,7 +100,8 @@ Le tout est orchestré par `services/analysis_service.py` (fonction `analyze_doc
 | `document_service.py` | Lecture de tous les formats + classification du type de document |
 | `analysis_service.py` | Le pipeline complet (étape 2) + formatage du rapport Markdown |
 | `chat_service.py` | Le chatbot : recherche les passages pertinents dans le texte (moteur de recherche locale) |
-| `llm_service.py` | IA optionnelle : Groq prioritaire, OpenRouter secours, repli local si échec ; synthèse intelligente |
+| `legal_source_service.py` | Références officielles : obtient un jeton PISTE (OAuth2), vérifie chaque référence sur Légifrance ou renvoie un lien de recherche ; aucune référence inventée |
+| `llm_service.py` | IA optionnelle : Groq prioritaire, OpenRouter secours, repli local si échec ; synthèse intelligente + **analyse de chaque clause** (risque, amélioration, fondement juridique) |
 | `export_service.py` | Exports PDF/Markdown/JSON + export de la conversation (TXT et PDF) |
 
 ### `ui/` — L'interface utilisateur (Streamlit)
@@ -122,13 +111,15 @@ Le tout est orchestré par `services/analysis_service.py` (fonction `analyze_doc
 | `styles.py` | Thème professionnel navy/or (CSS complet) |
 | `chat_display.py` | Affichage de la conversation + conversion Markdown→HTML |
 
-### `tests/` — Les tests
+### `tests/` — Les tests (131 au total)
 | Fichier | Rôle |
 |---------|------|
 | `test_extraction.py` | Extraction (dates, montants, parties, articles, cas vides) |
 | `test_comparison.py` | Comparaison (dates, montants, parties, clauses, documents identiques) |
-| `test_rules_engine.py` | Les 8 règles + orchestrateur + déduplication |
-| `test_llm_fallback.py` | Le repli automatique sans clé API |
+| `test_rules_engine.py` | Les 19 règles (dont 6 risques futurs) + orchestrateur + déduplication + formes sociales |
+| `test_knowledge_base.py` | Base juridique, recherche RAG-lite, intégration au pipeline |
+| `test_llm_fallback.py` | Le repli automatique sans clé API, analyse de clauses |
+| autres `test_*` | API, pipeline, OCR, qualité documents |
 
 ### `docs/` — La documentation
 | Fichier | Rôle |
@@ -171,11 +162,12 @@ L'utilisateur dépose les deux fichiers. Le système :
 1. Identifie le pacte et les statuts (classification)
 2. Extrait les dates, montants, parties, clauses
 3. Compare les 2 documents (contradictions, incohérences)
-4. Applique les 8 règles de contrôle → anomalies avec priorité (bloquant / important / alerte)
-5. Calcule un niveau de risque global (faible / modéré / élevé)
-6. Génère un rapport avec pour chaque anomalie : explication, source juridique, correction recommandée, documents à vérifier, validation humaine requise
-7. (Optionnel) Produit une synthèse intelligente par IA
-8. Le juriste peut poser des questions et exporter le rapport en PDF
+4. Applique les 19 règles de contrôle → anomalies avec priorité (bloquant / important / alerte)
+5. Rattache chaque anomalie à la base juridique (RAG-lite : articles + règles de contrôle pertinents) et ajoute les liens Légifrance
+6. Calcule un niveau de risque global (faible / modéré / élevé)
+7. Génère un rapport avec pour chaque anomalie : explication, source juridique, correction recommandée, documents à vérifier, validation humaine requise
+8. (Optionnel) Produit une synthèse intelligente par IA et une analyse de chaque clause
+9. Le juriste peut poser des questions et exporter le rapport en PDF
 
 ### Les anomalies ont 3 niveaux de priorité
 | Priorité | Signification |
@@ -215,14 +207,17 @@ L'utilisateur dépose les deux fichiers. Le système :
 
 ## 7. Tests et qualité
 
-**39 tests, tous au vert** (`python -m pytest tests/ -v`) :
+**131 tests, tous au vert** (`python -m pytest tests/ -v`) :
 
 | Module | Nombre | Ce qui est vérifié |
 |--------|--------|--------------------|
-| Extraction | 12 | Dates, montants, parties, articles, cas vides |
-| Comparaison | 7 | Dates, montants, parties, clauses, documents identiques |
-| Règles | 11 | Les 8 règles + orchestrateur + déduplication |
-| Repli LLM | 9 | Comportement sans clé, clé invalide, échec d'appel |
+| Extraction | 19 | Dates, montants, parties, articles, cas vides |
+| Comparaison | 13 | Dates, montants, parties, clauses, documents identiques |
+| Règles | 41 | Les 19 règles (dont 6 risques futurs), formes sociales, orchestrateur, déduplication |
+| Base juridique (RAG-lite) | 11 | Chargement, recherche par pertinence, intégration pipeline |
+| Repli LLM | 10 | Comportement sans clé, clé invalide, échec d'appel, analyse de clauses |
+| Références Légifrance | 10 | Normalisation des références (forme canonique), liens de recherche |
+| API / pipeline / OCR / qualité | 23 | Endpoints, pipeline complet, OCR, qualité des documents |
 
 En plus : `test_pipeline.py` (pipeline complet) et `test_api.py` (endpoints API).
 
@@ -230,12 +225,12 @@ En plus : `test_pipeline.py` (pipeline complet) et `test_api.py` (endpoints API)
 
 ## 8. Ce qui reste à faire (semaines 5 à 8)
 
-1. **Intégrer Légifrance/PISTE** pour remplacer les références fictives par de vraies sources officielles
-2. **Brancher l'OCR réel** (Tesseract) pour les PDF scannés de mauvaise qualité
-3. **Enrichir la base juridique** (nouvelles règles, nouveaux types de documents)
-4. **Étendre le workflow de validation humaine** dans l'interface
-5. **Étendre à d'autres documents** : procès-verbaux, décisions sociales, modifications statutaires
-6. **Intégration TOP-JURIDIQUE** : connecter l'API REST à l'environnement de test
+1. **Intégration TOP-JURIDIQUE** : connecter l'API REST à l'environnement de test (URL + identifiants à fournir)
+2. **Étendre la base juridique** (nouvelles règles, nouveaux types de documents : PV, contrats, baux)
+3. **Étendre le workflow de validation humaine** dans l'interface
+4. **Étendre à d'autres documents** : procès-verbaux, décisions sociales, modifications statutaires
+5. **NLP** : remplacer progressivement les regex par de l'extraction avancée (spaCy, CamemBERT)
+6. **Configurer les clés PISTE** dans l'environnement de production pour la vérification officielle automatique
 
 ---
 

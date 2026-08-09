@@ -1,0 +1,22 @@
+Bonjour,
+
+Suite à vos retours, voici ce qui a été fait.
+
+1. Correction juridique demandée
+- L.228-23 ne s'applique pas à une SARL : les règles sont désormais adaptées à la forme juridique détectée automatiquement. Pour une SARL, l'agrément s'appuie sur l'article L.223-14 du Code de commerce (cession de parts).
+- Toutes les règles dépendantes de la forme de la société ont été vérifiées : agrément, majorités et décisions, droit de veto.
+- 6 tests dédiés à cette correction ont été ajoutés. Résultat : 79 tests automatisés, tous au vert.
+
+2. Livrables demandés (pièces jointes)
+- Résultats des 79 tests.
+- Documents utilisés pour l'exemple : statuts_sarl.pdf et pacte_associes_sarl.pdf.
+- Rapport généré en PDF et en JSON.
+
+3. Assistant en ligne
+- L'application est déployée et accessible : https://top-juridique-copilote.onrender.com
+- Vérifié sur l'exemple : l'anomalie « agrément » affiche bien Art. L223-14, vérifiée en direct dans Légifrance (PISTE).
+
+Je confirme le point de validation prévu vendredi.
+
+Cordialement,
+Mhadbi Hichem

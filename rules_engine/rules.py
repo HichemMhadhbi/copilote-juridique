@@ -84,13 +84,27 @@ _FORME_PATTERNS: List[tuple[Any, str]] = [
 ]
 
 
+def _detecter_plus_tot(texte: str) -> str:
+    """Retourne la forme dont la mention est la plus précoce dans le texte.
+
+    Les documents réels citent souvent plusieurs formes sociales (clauses de
+    transformation, remarques, renvois) : la forme réellement déclarée figure
+    généralement en tête de document (dénomination, « FORME »). Le simple
+    « premier pattern qui matche » est donc trompeur ; on privilégie la
+    mention la plus tôt dans le texte.
+    """
+    meilleur = None  # (forme, position)
+    for pattern, forme in _FORME_PATTERNS:
+        m = pattern.search(texte)
+        if m and (meilleur is None or m.start() < meilleur[1]):
+            meilleur = (forme, m.start())
+    return meilleur[0] if meilleur else ""
+
+
 def _forme_sociale(data: Dict[str, Any]) -> str:
     """Détecte la forme juridique de la société (SARL, EURL, SAS, SA...)."""
     texte = _normaliser(_texte_complet(data))
-    for pattern, forme in _FORME_PATTERNS:
-        if pattern.search(texte):
-            return forme
-    return ""
+    return _detecter_plus_tot(texte)
 
 
 def _article_agrement(form: str) -> str:
@@ -120,12 +134,46 @@ def _article_decisions(form: str) -> str:
     return "Art. L225-96"
 
 
+def a_mecanisme_blocage(data: Dict[str, Any]) -> bool:
+    """Indique si le document prévoit un mécanisme de résolution de blocage.
+
+    Recherche dans le texte complet (normalisé) les termes médiation,
+    arbitrage, conciliation ou règlement amiable.
+    """
+    texte = _normaliser(data.get("texte", ""))
+    for clause in data.get("clauses", []):
+        texte += " " + _normaliser(clause.get("contenu", ""))
+    return any(
+        mot in texte
+        for mot in ("mediation", "arbitrage", "conciliation", "reglement amiable")
+    )
+
+
+def a_mecanisme_agrement(data: Dict[str, Any]) -> bool:
+    """Indique si le document prévoit un mécanisme d'agrément.
+
+    Recherche dans le texte complet (normalisé) : le terme « agrément » peut
+    apparaître dans une clause dédiée ou être couvert par renvoi aux statuts
+    (ex. « toute cession demeure soumise à l'agrément prévu par les statuts »).
+    """
+    texte = _normaliser(data.get("texte", ""))
+    for clause in data.get("clauses", []):
+        texte += " " + _normaliser(clause.get("contenu", ""))
+    return "agrement" in texte
+
+
 # ── Règles ────────────────────────────────────────────────────────────────
 
 
 def check_clause_agrement(extracted_data: Dict[str, Any]) -> List[_Finding]:
-    """Règle n°1 — Vérifie la présence et la conformité de la clause d'agrément."""
+    """Règle n°1 — Vérifie la présence et la conformité de la clause d'agrément.
+
+    La clause peut être dédiée ou figurer par renvoi (loi / statuts) ; on
+    recherche donc dans le texte complet et pas seulement dans les titres.
+    """
     findings: List[_Finding] = []
+    if a_mecanisme_agrement(extracted_data):
+        return findings
     clause = _trouver_clause(extracted_data, "agrément")
     if clause is None:
         forme = _forme_sociale(extracted_data)
@@ -261,11 +309,17 @@ def check_conflict_pacte_statuts(
 
 
 def check_clause_blocage(extracted_data: Dict[str, Any]) -> List[_Finding]:
-    """Règle n°7 — Vérifie la présence d'un mécanisme en cas de blocage décisionnel."""
+    """Règle n°7 — Vérifie la présence d'un mécanisme en cas de blocage décisionnel.
+
+    Recherche dans le texte complet (titres et contenus) une clause de
+    médiation, d'arbitrage ou de conciliation.
+    """
     findings: List[_Finding] = []
-    mediation = _trouver_clause(extracted_data, "médiation")
-    arbitrage = _trouver_clause(extracted_data, "arbitrage")
-    if mediation is None and arbitrage is None:
+    texte_brut = extracted_data.get("texte", "")
+    for clause in extracted_data.get("clauses", []):
+        texte_brut += " " + clause.get("contenu", "")
+    texte_brut = _normaliser(texte_brut)
+    if texte_brut and not a_mecanisme_blocage({"texte": texte_brut, "clauses": []}):
         findings.append({
             "type": "clause_manquante",
             "priorite": "important",
@@ -279,8 +333,15 @@ def check_clause_blocage(extracted_data: Dict[str, Any]) -> List[_Finding]:
 
 
 def check_responsabilite_gerant(extracted_data: Dict[str, Any]) -> List[_Finding]:
-    """Règle n°8 — Vérifie la définition des pouvoirs du gérant et sa responsabilité."""
+    """Règle n°8 — Vérifie la définition des pouvoirs du gérant et sa responsabilité.
+
+    Règle propre aux formes à gérant (SARL / EURL / SCI) : dans une SAS ou une
+    SA, la direction est assurée par un président / directeur général et la
+    notion de « gérant » n'est pas applicable.
+    """
     findings: List[_Finding] = []
+    if _forme_sociale(extracted_data) not in ("SARL", "EURL", "SCI", ""):
+        return findings
     clauses = extracted_data.get("clauses", [])
     pouvoirs_trouves = False
     for clause in clauses:
@@ -364,6 +425,325 @@ def check_pv_resolutions(extracted_data: Dict[str, Any]) -> List[_Finding]:
     return findings
 
 
+def check_champs_a_completer(extracted_data: Dict[str, Any]) -> List[_Finding]:
+    """Règle n°12 — Vérifie que le document ne contient pas de champs à compléter.
+
+    Détecte les placeholders entre crochets comportant des lettres (ex.
+    « [SEUIL] », « [MAJORITÉ À FIXER] », « [DÉNOMINATION À COMPLÉTER] »).
+    Les durées entre crochets sans lettres (« [24] mois ») ne sont pas
+    considérées comme des champs à compléter.
+    """
+    findings: List[_Finding] = []
+    texte = _normaliser(extracted_data.get("texte", ""))
+    for clause in extracted_data.get("clauses", []):
+        texte += " " + _normaliser(clause.get("contenu", ""))
+    placeholders = set(re.findall(r"\[[^\]\n]{1,40}\]", texte))
+    champs = [
+        p for p in placeholders
+        if re.search(r"[a-zà-ÿ]", p) and not re.fullmatch(r"\[\d+\]", p)
+    ]
+    if champs:
+        findings.append({
+            "type": "clause_incomplete",
+            "priorite": "alerte",
+            "explication": "Champs à compléter détectés : " + ", ".join(sorted(champs)) + ".",
+            "reference_juridique": "Modèle de pacte",
+            "correction_recommandee": "Renseigner chaque champ avant signature (seuils, majorités, dénomination, durées...).",
+            "document_concerne": extracted_data.get("type_document", "non spécifié"),
+            "validation_requise": "relecture",
+        })
+    return findings
+
+
+def check_formulations_forme(extracted_data: Dict[str, Any]) -> List[_Finding]:
+    """Règle n°13 — Détecte les formulations propres à une autre forme sociale.
+
+    Dans des statuts ou un pacte de SAS / SA, la présence des termes « parts
+    sociales » ou « gérant » (propres à la SARL) révèle une incohérence de
+    rédaction avec la forme sociale déclarée.
+    """
+    findings: List[_Finding] = []
+    forme = _forme_sociale(extracted_data)
+    if forme not in ("SAS", "SASU", "SA"):
+        return findings
+    texte = _normaliser(extracted_data.get("texte", ""))
+    for clause in extracted_data.get("clauses", []):
+        texte += " " + _normaliser(clause.get("contenu", ""))
+    a_parts = re.search(r"part\s*s?\s*sociale", texte) is not None
+    a_gerant = "gerant" in texte or "cogerant" in texte
+    motifs = []
+    if a_parts:
+        motifs.append("« parts sociales »")
+    if a_gerant:
+        motifs.append("« gérant »")
+    if motifs:
+        findings.append({
+            "type": "incohérence",
+            "priorite": "alerte",
+            "explication": (
+                f"Terminologie propre à la SARL employée dans un document de {forme} : "
+                f"{', '.join(motifs)}. Ces notions ne correspondent pas à la forme sociale "
+                "(actions / président ou directeur général)."
+            ),
+            "reference_juridique": "Code de commerce, art. L.227-1 et s.",
+            "correction_recommandee": "Remplacer la terminologie (parts sociales → actions, gérant → président / directeur général).",
+            "document_concerne": extracted_data.get("type_document", "non spécifié"),
+            "validation_requise": "juriste",
+        })
+    return findings
+
+
+def check_valorisation_sortie(extracted_data: Dict[str, Any]) -> List[_Finding]:
+    """Règle n°14 — Risque futur : vérifie la définition d'une méthode de valorisation.
+
+    Dès que le document organise une sortie / cession / rachat de parts, le prix
+    doit pouvoir être déterminé objectivement (renvoi à l'art. 1843-4 C. civ,
+    expert indépendant, formule de valorisation). Sans cela, tout litige sur le
+    prix se règle au tribunal, ce qui constitue un risque futur réel.
+    """
+    findings: List[_Finding] = []
+    texte = _normaliser(_texte_complet(extracted_data))
+    a_sortie = any(
+        mot in texte
+        for mot in ("sortie", "cession", "rachat", "retrait", "vente de parts", "drag-along", "tag-along")
+    )
+    if not a_sortie:
+        return findings
+    a_valorisation = any(
+        mot in texte
+        for mot in (
+            "valorisation", "evaluation", "expert", "1843-4", "valeur des parts",
+            "prix de cession", "audit", "juste valeur",
+        )
+    )
+    if not a_valorisation:
+        findings.append({
+            "type": "risque_futur",
+            "priorite": "important",
+            "explication": ("Le document organise une sortie ou une cession de parts mais ne définit "
+                            "pas la méthode de valorisation des titres : tout désaccord sur le prix "
+                            "devra être tranché judiciairement (risque futur)."),
+            "reference_juridique": "Art. 1843-4 C. civ",
+            "correction_recommandee": ("Définir la méthode de valorisation (renvoi à l'art. 1843-4 "
+                                       "C. civ ou recours à un expert indépendant) et la procédure à "
+                                       "suivre en cas de désaccord sur le prix."),
+            "document_concerne": extracted_data.get("type_document", "non spécifié"),
+            "validation_requise": "juriste",
+        })
+    return findings
+
+
+def check_clause_deces_incapacite(extracted_data: Dict[str, Any]) -> List[_Finding]:
+    """Règle n°15 — Risque futur : vérifie le sort des parts en cas de décès/incapacité.
+
+    Règle propre au pacte d'associés : les statuts couvrent en général la
+    transmission par succession (L223-13 pour la SARL), mais le pacte doit
+    organiser le devenir du partenaire décédé ou frappé d'incapacité
+    (agrément des héritiers ou rachat forcé) pour éviter une paralysie.
+    """
+    findings: List[_Finding] = []
+    if extracted_data.get("type_document") != "pacte_associes":
+        return findings
+    texte = _normaliser(_texte_complet(extracted_data))
+    couvert = any(
+        mot in texte
+        for mot in ("deces", "deceder", "incapacite", "heritier", "succession", "dece de l'associe")
+    )
+    if couvert:
+        return findings
+    forme = _forme_sociale(extracted_data)
+    article = "Art. L227-9" if forme in ("SA", "SAS", "SASU") else "Art. L223-13"
+    findings.append({
+        "type": "risque_futur",
+        "priorite": "alerte",
+        "explication": ("Le pacte ne prévoit pas le sort des parts en cas de décès ou d'incapacité "
+                        "d'un associé : la société peut se retrouver bloquée avec un associé "
+                        "incapable ou des héritiers imprévus."),
+        "reference_juridique": article,
+        "correction_recommandee": ("Prévoir le sort des parts en cas de décès ou d'incapacité "
+                                   "(agrément des héritiers ou rachat forcé) et les modalités "
+                                   "d'évaluation associées."),
+        "document_concerne": extracted_data.get("type_document", "non spécifié"),
+        "validation_requise": "juriste",
+    })
+    return findings
+
+
+def check_clause_impaye(extracted_data: Dict[str, Any]) -> List[_Finding]:
+    """Règle n°16 — Risque futur : vérifie l'existence d'une sanction en cas de non-paiement.
+
+    Lorsque le document impose des paiements (appel de fonds, prix de cession,
+    pénalités, complément d'apport), l'absence de clause de défaillance
+    (mise en demeure, clause résolutoire) laisse l'associé défaillant sans
+    sanction concrète.
+    """
+    findings: List[_Finding] = []
+    texte = _normaliser(_texte_complet(extracted_data))
+    a_paiement = any(
+        mot in texte
+        for mot in ("paiement", "appel de fonds", "contribution", "versement", "reglement du prix", "tranche", "impaye")
+    )
+    if not a_paiement:
+        return findings
+    couvert = any(
+        mot in texte
+        for mot in ("impaye", "non-paiement", "resolutoire", "mise en demeure", "defaut", "defaillance")
+    )
+    if not couvert:
+        findings.append({
+            "type": "risque_futur",
+            "priorite": "alerte",
+            "explication": ("Le document prévoit des obligations de paiement mais aucune sanction "
+                            "en cas de défaillance (mise en demeure, clause résolutoire) : "
+                            "l'associé défaillant n'est pas incité à exécuter."),
+            "reference_juridique": "Art. 1225 C. civ",
+            "correction_recommandee": ("Prévoir une mise en demeure restée sans effet dans un délai "
+                                       "déterminé, puis une clause résolutoire ou une pénalité de "
+                                       "retard, conformément à l'art. 1225 C. civ."),
+            "document_concerne": extracted_data.get("type_document", "non spécifié"),
+            "validation_requise": "juriste",
+        })
+    return findings
+
+
+def check_clause_confidentialite(extracted_data: Dict[str, Any]) -> List[_Finding]:
+    """Règle n°17 — Risque futur : vérifie l'existence d'une clause de confidentialité.
+
+    Dès qu'un pacte échange des informations sensibles (données financières,
+    savoir-faire, stratégie, chiffre d'affaires), l'absence d'une clause de
+    confidentialité laisse ces informations sans protection : la divulgation
+    par un associé est alors sans sanction (risque de fuite du savoir-faire).
+    """
+    findings: List[_Finding] = []
+    if extracted_data.get("type_document") != "pacte_associes":
+        return findings
+    texte = _normaliser(_texte_complet(extracted_data))
+    a_infos = any(
+        mot in texte
+        for mot in (
+            "donnees financieres", "informations financieres", "chiffre d'affaires",
+            "savoir-faire", "secrets commerciaux", "informations strategiques",
+            "informations privees", "strategie de la societe",
+        )
+    )
+    if not a_infos:
+        return findings
+    couvert = any(
+        mot in texte
+        for mot in (
+            "confidentialite", "secret des affaires", "discretion",
+            "non-divulgation", "divulguer", "secret professionnel",
+            "informations confidentielles",
+        )
+    )
+    if not couvert:
+        findings.append({
+            "type": "risque_futur",
+            "priorite": "alerte",
+            "explication": ("Le pacte échange des informations sensibles (financières, "
+                            "stratégie, savoir-faire) mais ne comporte aucune clause de "
+                            "confidentialité : une divulgation par un associé resterait "
+                            "sans sanction (risque futur de fuite)."),
+            "reference_juridique": "Art. L151-1 C. com",
+            "correction_recommandee": ("Prévoir une clause de confidentialité (obligation de "
+                                       "non-divulgation, durée de l'engagement, sanctions) "
+                                       "conformément au régime du secret des affaires."),
+            "document_concerne": extracted_data.get("type_document", "non spécifié"),
+            "validation_requise": "juriste",
+        })
+    return findings
+
+
+def check_clause_resiliation(extracted_data: Dict[str, Any]) -> List[_Finding]:
+    """Règle n°18 — Risque futur : engagement à durée/irrévocable sans issue.
+
+    Lorsque le pacte est conclu pour une durée déterminée ou contient des
+    engagements irrévocables, il doit organiser sa propre sortie (résiliation,
+    préavis, terme). Un engagement perpétuel ou sans issue verrouille les
+    associés et génère un risque futur de blocage.
+    """
+    findings: List[_Finding] = []
+    if extracted_data.get("type_document") != "pacte_associes":
+        return findings
+    texte = _normaliser(_texte_complet(extracted_data))
+    a_engagement = any(
+        mot in texte
+        for mot in (
+            "conclu pour une duree", "pour une duree de", "duree indeterminee",
+            "duree determinee", "irrevocable", "engagement irrevocable",
+            "ferme et irrevocable", "le present pacte est conclu",
+        )
+    )
+    if not a_engagement:
+        return findings
+    couvert = any(
+        mot in texte
+        for mot in ("resiliation", "rupture", "preavis", "denonciation", "terminaison")
+    )
+    if not couvert:
+        findings.append({
+            "type": "risque_futur",
+            "priorite": "alerte",
+            "explication": ("Le pacte prévoit une durée ou des engagements irrévocables "
+                            "mais aucune issue (résiliation, préavis, terme) : les associés "
+                            "restent verrouillés et toute sortie devra être négociée "
+                            "judiciairement (risque futur)."),
+            "reference_juridique": "Art. 1210 C. civ",
+            "correction_recommandee": ("Prévoir la durée du pacte et un mécanisme de sortie "
+                                       "(résiliation avec préavis, terme, clause de survie), "
+                                       "les engagements perpétuels étant prohibés (art. 1210 C. civ)."),
+            "document_concerne": extracted_data.get("type_document", "non spécifié"),
+            "validation_requise": "juriste",
+        })
+    return findings
+
+
+def check_desequilibre_pouvoirs(extracted_data: Dict[str, Any]) -> List[_Finding]:
+    """Règle n°19 — Risque futur : pouvoirs unilatéraux sans protection minoritaire.
+
+    Un droit de veto ou des droits spéciaux concentrés sur un associé créent un
+    déséquilibre de gouvernance si aucune protection du minoritaire n'existe
+    (tag-along, sortie conjointe, droit de sortie) : risque futur d'abus.
+    """
+    findings: List[_Finding] = []
+    if extracted_data.get("type_document") != "pacte_associes":
+        return findings
+    texte = _normaliser(_texte_complet(extracted_data))
+    a_pouvoir_unilateral = any(
+        mot in texte
+        for mot in (
+            "veto", "veto exclusif", "droits speciaux", "actions de preference",
+            "majorite de blocage", "pouvoir de blocage",
+        )
+    )
+    if not a_pouvoir_unilateral:
+        return findings
+    protection = any(
+        mot in texte
+        for mot in (
+            "tag-along", "tag along", "sortie conjointe", "drag-along", "drag along",
+            "protection", "droit de sortie", "minoritaire",
+        )
+    )
+    if not protection:
+        findings.append({
+            "type": "risque_futur",
+            "priorite": "important",
+            "explication": ("Le pacte concentre des pouvoirs unilatéraux (veto, droits "
+                            "spéciaux) sur un associé sans aucune protection du minoritaire "
+                            "(tag-along, sortie conjointe) : déséquilibre de gouvernance "
+                            "et risque futur d'abus."),
+            "reference_juridique": "Art. 1104 C. civ",
+            "correction_recommandee": ("Équilibrer la gouvernance : prévoir des droits de "
+                                       "protection du minoritaire (tag-along, sortie conjointe, "
+                                       "quorum de protection), le tout de bonne foi "
+                                       "(art. 1104 C. civ)."),
+            "document_concerne": extracted_data.get("type_document", "non spécifié"),
+            "validation_requise": "juriste",
+        })
+    return findings
+
+
 def check_modification_statutaire(extracted_data: Dict[str, Any]) -> List[_Finding]:
     """Règle n°11 — Vérifie les mentions obligatoires d'une modification statutaire."""
     findings: List[_Finding] = []
@@ -371,23 +751,42 @@ def check_modification_statutaire(extracted_data: Dict[str, Any]) -> List[_Findi
     for clause in extracted_data.get("clauses", []):
         texte_brut += " " + clause.get("contenu", "")
     texte_brut = _normaliser(texte_brut)
+    forme = _forme_sociale(extracted_data)
 
     decision_extraordinaire = any(mot in texte_brut for mot in (
         "assemblee generale extraordinaire",
-        "assemblee extraordinaire", "decision des associes",
-        "decision de l'associe unique", "acte modifiant les statuts",
+        "assemblee extraordinaire",
+        "decision des associes",
+        "decision de l'associe unique",
+        "decision de la collectivite des actionnaires",
+        "collectivite des actionnaires",
+        "acte modifiant les statuts",
     ))
     if texte_brut and not decision_extraordinaire:
-        findings.append({
-            "type": "vérification",
-            "priorite": "important",
-            "explication": "Aucune mention d'une assemblée générale extraordinaire : une modification "
-                           "des statuts exige une décision extraordinaire des associés.",
-            "reference_juridique": "Art. L223-30",
-            "correction_recommandee": "Préciser l'organe décisionnel (AGE) et la majorité requise.",
-            "document_concerne": extracted_data.get("type_document", "non spécifié"),
-            "validation_requise": "juriste",
-        })
+        # L'organe décisionnel d'une modification statutaire dépend de la forme :
+        # SARL/EURL = décision extraordinaire des associés (L223-30),
+        # SA = AGE (L225-96), SAS/SASU = décisions fixées librement par les statuts (L227-9).
+        if forme in ("SARL", "EURL"):
+            article_age = "Art. L223-30"
+            explication = ("Aucune mention d'une assemblée générale extraordinaire : une modification "
+                           "des statuts exige une décision extraordinaire des associés.")
+        elif forme in ("SA",):
+            article_age = "Art. L225-96"
+            explication = ("Aucune mention d'une assemblée générale extraordinaire : pour une société "
+                           "anonyme, la modification des statuts relève de l'assemblée générale "
+                           "extraordinaire.")
+        else:
+            article_age = None
+        if article_age is not None:
+            findings.append({
+                "type": "vérification",
+                "priorite": "important",
+                "explication": explication,
+                "reference_juridique": article_age,
+                "correction_recommandee": "Préciser l'organe décisionnel et la majorité requise.",
+                "document_concerne": extracted_data.get("type_document", "non spécifié"),
+                "validation_requise": "juriste",
+            })
 
     depot_formalite = any(mot in texte_brut for mot in (
         "depot au greffe", "greffe du tribunal", "greffe", "rcs", "inscription modificative", "publication",

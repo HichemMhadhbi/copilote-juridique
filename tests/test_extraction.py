@@ -124,6 +124,26 @@ class TestExtractParties:
         assert len(result["parties"]) == 0
         assert len(result["personnes"]) == 0
 
+    def test_ignore_placeholders_comme_parties(self) -> None:
+        """Les placeholders de modèles ne sont pas extraits comme parties."""
+        texte = "PROJET DE PACTE [SEUIL] euros, [MAJORITE A FIXER] % à Paris."
+        ext = EntityExtractor(texte)
+        result = ext.extract_all()
+        noms = [p["nom"] for p in result["parties"]]
+        assert all("SEUIL" not in n for n in noms)
+        assert all("PROJET" not in n for n in noms)
+        assert all("MAJORITE" not in n for n in noms)
+        assert all("PARIS" not in n for n in noms)
+
+    def test_societe_a_mot_significatif_garde(self) -> None:
+        """Une société avec un nom significatif reste extraite malgré 'SARL'."""
+        texte = "La SAS INNOV-TECH et la SARL CONSULT-EXPERT sont parties au pacte."
+        ext = EntityExtractor(texte)
+        result = ext.extract_all()
+        noms = [p["nom"] for p in result["parties"]]
+        assert any("INNOV" in n for n in noms)
+        assert any("CONSULT" in n for n in noms)
+
 
 class TestExtractArticles:
     """Teste l'extraction des références à des articles."""

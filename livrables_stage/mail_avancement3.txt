@@ -24,7 +24,7 @@ Je vous fais un point détaillé de l'avancement du stage, étape par étape, av
   Ce statut apparaît dans l'interface et dans les exports (PDF, Markdown, JSON). La vérification s'appuie uniquement sur la base officielle : aucune référence n'est inventée.
 
 Étape 4 — Règles de contrôle et comparaison entre documents
-- 8 règles de contrôle déterministes : clause d'agrément, clause de sortie, droit de veto, majorités de décision, non-concurrence, contradiction pacte/statuts, clause de blocage, pouvoirs du gérant.
+- 19 règles de contrôle déterministes : clause d'agrément, clause de sortie, droit de veto, majorités de décision, non-concurrence, contradiction pacte/statuts, clause de blocage, pouvoirs du gérant, PV/quorum, PV/résolutions, modification statutaire, champs à compléter, formulations/forme, et 6 règles de risques futurs (valorisation des titres en sortie, décès/incapacité d'un associé, non-paiement, confidentialité / secret des affaires, résiliation, équilibre des pouvoirs). Les règles sont adaptées à la forme sociale (SAS/SARL/SCI…).
 - Chaque anomalie comporte : explication simple, nature du contrôle, priorité (bloquant / important / alerte), conséquence possible, source juridique vérifiée, correction recommandée, documents à vérifier, validation humaine requise.
 - Comparaison croisée entre deux documents (pacte vs statuts) : dates, montants, parties, clauses, avec sévérité.
 - Niveau de risque global : faible / modéré / élevé.
@@ -48,7 +48,7 @@ Je vous fais un point détaillé de l'avancement du stage, étape par étape, av
 - Vérifié de bout en bout : une image ou un PDF scanné est lu par OCR (Tesseract + français), le texte est extrait et la qualité de lecture est évaluée (OCR faible si le résultat est peu fiable). Les deux tests OCR automatisés passent.
 
 Qualité globale
-- 73 tests automatisés, tous au vert.
+- 131 tests automatisés, tous au vert.
 - Architecture modulaire et évolutive : lecture, extraction, comparaison, règles, base juridique, vérification Légifrance, IA, rapport, validation, API sont des couches séparées et remplaçables.
 
 2. Exemple concret d'analyse réalisée
@@ -74,6 +74,7 @@ Fait :
 - Formats : PDF natif et scanné, Word, images, texte ; signalement d'un document illisible, scan faible, page manquante, document incomplet.
 - Rapport de contrôle exploitable avec validation humaine.
 - Architecture modulaire, API REST, documentation et benchmark des solutions existantes.
+- Neutralisation des règles de société pour les documents de type « manuel/cours » : un document « autre » n'est plus passé au crible des règles de société (faux positifs évités).
 
 En attente (besoin de votre part ou accès à obtenir) :
 - L'accès à l'environnement de test TOP-JURIDIQUE (URL + identifiants) pour l'intégration : récupérer les documents du dossier, lancer l'analyse, conserver le rapport et permettre la validation dans la plateforme.
@@ -82,7 +83,6 @@ En attente (besoin de votre part ou accès à obtenir) :
 
 4. Prochaines étapes
 
-- Neutraliser les règles de société pour les documents de type « manuel/cours » (éviter les fausses alertes sur un document de type « autre »).
 - Étendre la base juridique à d'autres documents : procès-verbaux, décisions sociales, modifications statutaires, contrats commerciaux.
 - Intégration à l'environnement de test TOP-JURIDIQUE dès que j'en ai l'accès.
 - Documentation finale, passation technique et démonstration.

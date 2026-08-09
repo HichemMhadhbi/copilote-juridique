@@ -67,18 +67,22 @@ _LEGACY_TOKEN = (os.getenv("LEGIFRANCE_API_TOKEN", "") or "").strip()
 _token_cache: dict[str, Any] = {"token": None, "expires_at": 0.0}
 
 _REF_PATTERN = re.compile(
-    r"(?:Art(?:icle)?\.?\s*)?((?:L|R|D)?\.?\s*\d{3,}(?:[-–]\d{1,3})?(?:-[a-zA-Z]+)?)",
+    r"(?:Art(?:icle)?\.?\s*)?((?:L|R|D)?\.?\s*\d{3,}(?:[-–]\d{1,3}){0,2}(?:-[a-zA-Z]+)?)",
     re.IGNORECASE,
 )
 
 
 def normalize_reference(reference: str) -> str:
-    """Extrait une référence d'article lisible depuis une chaîne quelconque."""
+    """Extrait une référence d'article lisible depuis une chaîne quelconque.
+
+    Retourne le numéro d'article sous sa forme canonique Légifrance
+    (sans espace ni point) : « Art. L. 227-1 et s. » -> « L227-1 ».
+    """
     if not reference:
         return ""
     match = _REF_PATTERN.search(reference)
     if match:
-        return match.group(1).strip().replace(" ", "")
+        return match.group(1).strip().replace(" ", "").replace(".", "")
     return reference.strip()
 
 
@@ -275,7 +279,9 @@ def _search_article(
                 if not isinstance(extract, dict):
                     continue
                 numero = str(extract.get("num") or extract.get("title") or "")
-                if numero.replace(" ", "").upper() == ref.upper():
+                # Comparaison robuste : « L227-1 », « L. 227-1 » et « L.227-1 »
+                # désignent le même article.
+                if _normaliser_numero(numero) == _normaliser_numero(ref):
                     identifiant = extract.get("id") or ""
                     if identifiant:
                         status = str(extract.get("legalStatus") or item.get("etat") or "")
@@ -286,6 +292,11 @@ def _search_article(
         if "VIGUEUR" in status.upper():
             return identifiant
     return candidates[0][0]
+
+
+def _normaliser_numero(numero: str) -> str:
+    """Canonise un numéro d'article pour la comparaison (sans point ni espace)."""
+    return re.sub(r"[.\s]", "", numero or "").upper()
 
 
 def _get_article_text(identifiant: str, token: str, timeout: int = 15) -> Optional[str]:

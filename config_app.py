@@ -11,6 +11,7 @@ load_dotenv()
 SUPPORTED_FORMATS = {
     "pdf": "PDF",
     "docx": "Word",
+    "doc": "Word (.doc)",
     "png": "Image",
     "jpg": "Image",
     "jpeg": "Image",

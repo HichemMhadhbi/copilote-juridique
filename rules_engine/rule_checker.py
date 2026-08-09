@@ -12,17 +12,27 @@ from typing import Any, Dict, List, Tuple
 
 from rules_engine.rules import (
     _Finding,
+    a_mecanisme_agrement,
+    a_mecanisme_blocage,
     check_clause_agrement,
     check_clause_blocage,
+    check_clause_confidentialite,
+    check_clause_deces_incapacite,
+    check_clause_impaye,
     check_clause_non_concurrence,
+    check_clause_resiliation,
     check_clause_sortie,
     check_conflict_pacte_statuts,
+    check_desequilibre_pouvoirs,
     check_droit_veto,
     check_majorite_decisions,
     check_modification_statutaire,
+    check_champs_a_completer,
+    check_formulations_forme,
     check_pv_quorum,
     check_pv_resolutions,
     check_responsabilite_gerant,
+    check_valorisation_sortie,
 )
 
 
@@ -70,15 +80,47 @@ class RuleChecker:
             findings.extend(check_majorite_decisions(self._statuts))
             findings.extend(check_clause_blocage(self._statuts))
             findings.extend(check_responsabilite_gerant(self._statuts))
+            findings.extend(check_champs_a_completer(self._statuts))
+            findings.extend(check_formulations_forme(self._statuts))
+            findings.extend(check_valorisation_sortie(self._statuts))
+            findings.extend(check_clause_impaye(self._statuts))
 
         # Règles applicables au pacte (uniquement si un pacte est fourni)
         if pacte_present:
-            findings.extend(check_clause_agrement(self._pacte))
+            # Un manque côté pacte n'est pas remonté comme anomalie lorsque les
+            # statuts du dossier comblent le besoin (analyse pacte + statuts) :
+            # agrément et résolution de blocage peuvent être prévus aux statuts.
+            statuts_ont_agrement = statuts_present and a_mecanisme_agrement(self._statuts)
+            statuts_ont_blocage = statuts_present and a_mecanisme_blocage(self._statuts)
+
+            for f in check_clause_agrement(self._pacte):
+                if not (
+                    statuts_ont_agrement
+                    and f.get("type") == "clause_manquante"
+                    and "agrément" in f.get("explication", "")
+                ):
+                    findings.append(f)
+
             findings.extend(check_clause_sortie(self._pacte))
             findings.extend(check_droit_veto(self._pacte))
             findings.extend(check_majorite_decisions(self._pacte))
             findings.extend(check_clause_non_concurrence(self._pacte))
-            findings.extend(check_clause_blocage(self._pacte))
+            findings.extend(check_champs_a_completer(self._pacte))
+            findings.extend(check_formulations_forme(self._pacte))
+            findings.extend(check_valorisation_sortie(self._pacte))
+            findings.extend(check_clause_deces_incapacite(self._pacte))
+            findings.extend(check_clause_impaye(self._pacte))
+            findings.extend(check_clause_confidentialite(self._pacte))
+            findings.extend(check_clause_resiliation(self._pacte))
+            findings.extend(check_desequilibre_pouvoirs(self._pacte))
+
+            for f in check_clause_blocage(self._pacte):
+                if not (
+                    statuts_ont_blocage
+                    and f.get("type") == "clause_manquante"
+                    and "blocage" in f.get("explication", "")
+                ):
+                    findings.append(f)
 
         # Règles comparatives (uniquement si les deux documents sont présents)
         if statuts_present and pacte_present:
@@ -111,7 +153,11 @@ class RuleChecker:
         Returns:
             Liste dédupliquée des findings (décision extraordinaire, formalités).
         """
-        return self._deduplicate(check_modification_statutaire(modif_data))
+        findings: List[_Finding] = []
+        findings.extend(check_modification_statutaire(modif_data))
+        findings.extend(check_formulations_forme(modif_data))
+        findings.extend(check_champs_a_completer(modif_data))
+        return self._deduplicate(findings)
 
     def run_all_with_stats(self) -> Dict[str, Any]:
         """

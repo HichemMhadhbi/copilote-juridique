@@ -15,6 +15,15 @@ reports/
 faiss_index/
 *.log
 
+# Données clients réelles (confidentiel - NE JAMAIS COMMITTER)
+DocEncadrante/
+dossiers_test/
+analyse_reel/
+
+# Fichiers temporaires / outillage local
+livrables/
+pytest_out.txt
+
 # Outils
 .idea/
 .vscode/
