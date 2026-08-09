@@ -152,7 +152,7 @@ Ce dossier contient toute la logique métier, appelée par les 3 interfaces.
 | `test_analysis_service.py` | Pipeline d'analyse complet (documents à vérifier, documents manquants). |
 | `test_llm_fallback.py` | Repli LLM sans clé API. |
 
-> **131 tests** unitaires, tous verts : `python -m pytest tests -q`
+> **164 tests** unitaires, tous verts : `python -m pytest tests -q`
 
 ### 3.13 Documentation et livrables
 
@@ -252,7 +252,7 @@ Groq (llama-3.3-70b)  →  OpenRouter (secours)  →  Génération locale (derni
 ## 7. Tests
 
 ```bash
-python -m pytest tests -q    # 131 tests, tous verts
+python -m pytest tests -q    # 164 tests, tous verts
 ```
 
 | Suite | Couvre |

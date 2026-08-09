@@ -14,6 +14,10 @@ venv/
 reports/
 faiss_index/
 *.log
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 
 # Données clients réelles (confidentiel - NE JAMAIS COMMITTER)
 DocEncadrante/
@@ -23,6 +27,7 @@ analyse_reel/
 # Fichiers temporaires / outillage local
 livrables/
 pytest_out.txt
+output_test/
 
 # Outils
 .idea/

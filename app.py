@@ -149,6 +149,8 @@ def render_sidebar():
 
 def render_saved_reports_section():
     """Liste des rapports sauvegardés sur disque (reprise de dossier)."""
+    if not storage_service.reports_enabled():
+        return
     st.sidebar.markdown("---")
     st.sidebar.markdown("### Rapports enregistrés")
     reports = storage_service.list_reports()

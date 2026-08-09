@@ -161,7 +161,10 @@ def run_pipeline(args: argparse.Namespace) -> Optional[str]:
 
     try:
         saved_path = storage_service.save_report(report)
-        print(f"  💾 Rapport sauvegardé : {saved_path}")
+        if saved_path:
+            print(f"  💾 Rapport sauvegardé : {saved_path}")
+        else:
+            print("  💾 Persistance désactivée (SAVE_REPORTS_TO_DISK=0) : rapport non sauvegardé sur disque.")
     except Exception as exc:
         print(f"  ⚠️ Sauvegarde du rapport impossible : {exc}")
 

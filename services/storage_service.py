@@ -21,17 +21,20 @@ logger = logging.getLogger(__name__)
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "reports"
 
-_ENABLED = os.getenv("SAVE_REPORTS_TO_DISK", "0").strip().lower() in ("1", "true", "yes", "on")
-
 
 def _reports_enabled() -> bool:
     """True si la persistance des rapports sur disque est activée."""
-    return _ENABLED
+    return os.getenv("SAVE_REPORTS_TO_DISK", "0").strip().lower() in ("1", "true", "yes", "on")
+
+
+def reports_enabled() -> bool:
+    """API publique : indique si la persistance des rapports est activée."""
+    return _reports_enabled()
 
 
 def _reports_dir() -> Path:
     """Retourne le dossier des rapports (créé si nécessaire)."""
-    if _ENABLED:
+    if _reports_enabled():
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     return REPORTS_DIR
 
@@ -52,7 +55,7 @@ def save_report(report: dict[str, Any]) -> str:
         Chemin du fichier sauvegardé, ou chaîne vide si la persistance
         est désactivée.
     """
-    if not _ENABLED:
+    if not _reports_enabled():
         return ""
     report_id = str(report.get("rapport_id") or "unknown")
     path = _report_path(report_id)
@@ -90,8 +93,9 @@ def list_reports() -> list[dict[str, Any]]:
         Liste de métadonnées : {rapport_id, date_analyse, niveau_risque,
         nombre_documents, nom_fichiers, chemin}.
     """
-    if not _ENABLED or not REPORTS_DIR.exists():
+    if not _reports_enabled() or not REPORTS_DIR.exists():
         return []
+    reports: list[dict[str, Any]] = []
     for path in sorted(REPORTS_DIR.glob("report_*.json"), reverse=True):
         try:
             with open(path, encoding="utf-8") as fh:

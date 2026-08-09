@@ -169,7 +169,7 @@ top-juridique-copilote/
 ├── examples/                        # Exemples
 │   └── rapport_exemple.md          # Rapport de contrôle exemple
 │
-    ├── tests/                           # Tests unitaires (131)
+    ├── tests/                           # Tests unitaires (164)
 │   ├── test_rules_engine.py        # 41 tests moteur de règles
 │   ├── test_knowledge_base.py      # 11 tests base juridique / RAG-lite
 │   ├── test_extraction.py          # 19 tests extracteur
@@ -288,7 +288,7 @@ python -m pytest tests/ -v
 
 ## 7. Tests
 
-**131 tests unitaires** couvrant :
+**164 tests unitaires** couvrant :
 
 | Module | Tests | Couverture |
 |--------|-------|------------|
@@ -299,11 +299,15 @@ python -m pytest tests/ -v
 | `api` | 12 | Health, analyse 1/n fichiers, rapport, validation |
 | `llm_fallback` | 10 | Repli local déterministe, analyse de clauses, parse JSON |
 | `legal_source` | 10 | Normalisation des références (forme canonique Légifrance), liens de recherche |
+| `chat` | 11 | Réponses locales : parties, dates, montants, risques, recommandations, résumé |
+| `validation` | 9 | Validation humaine : approuver / rejeter / modifier, résumé |
+| `storage` | 8 | Sauvegarde / chargement / liste / suppression des rapports |
+| `export` | 5 | Export Markdown, JSON, PDF (rapport + conversation) |
 | Autres | 15 | OCR, qualité documents, pipeline analyse, documents manquants |
-| **Total** | **131** | **Tous passent ✅** |
+| **Total** | **164** | **Tous passent ✅** |
 
 ```bash
-python -m pytest tests -q    # 131 passed
+python -m pytest tests -q    # 164 passed
 ```
 
 ---
@@ -347,7 +351,7 @@ Voir `docs/02_benchmark.md` pour l'analyse de 18 solutions existantes (10 France
 | `main.py` | Point d'entrée CLI |
 | `config.py` | Configuration globale |
 | `requirements.txt` | Dépendances |
-| `tests/` | 131 tests unitaires |
+| `tests/` | 164 tests unitaires |
 
 ---
 

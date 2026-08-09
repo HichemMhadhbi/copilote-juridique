@@ -48,7 +48,7 @@ Je vous fais un point détaillé de l'avancement du stage, étape par étape, av
 - Vérifié de bout en bout : une image ou un PDF scanné est lu par OCR (Tesseract + français), le texte est extrait et la qualité de lecture est évaluée (OCR faible si le résultat est peu fiable). Les deux tests OCR automatisés passent.
 
 Qualité globale
-- 131 tests automatisés, tous au vert.
+- 164 tests automatisés, tous au vert.
 - Architecture modulaire et évolutive : lecture, extraction, comparaison, règles, base juridique, vérification Légifrance, IA, rapport, validation, API sont des couches séparées et remplaçables.
 
 2. Exemple concret d'analyse réalisée

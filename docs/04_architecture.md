@@ -451,7 +451,7 @@ top-juridique-copilote/
 │   ├── mail_avancement*.txt        # Mails d'avancement
 │   └── analyse_complete_travail.md # Analyse complète du travail
 │
-├── tests/                          # 131 tests unitaires
+├── tests/                          # 164 tests unitaires
 │   ├── test_extraction.py          # Extraction
 │   ├── test_rules_engine.py        # 19 règles + formes sociales
 │   ├── test_knowledge_base.py      # Base juridique + RAG-lite
@@ -556,7 +556,7 @@ PISTE_CLIENT_SECRET=...
 - Cas d'usage principal : pacte vs statuts
 - Interface Streamlit + CLI + API REST
 - Base juridique v1 (18 entrées réelles) + vérification Légifrance/PISTE
-- 131 tests automatisés
+- 164 tests automatisés
 
 ### Phase 2 (Post-stage)
 - Étendre la base juridique (PV, contrats, baux) et les règles correspondantes
@@ -576,7 +576,7 @@ PISTE_CLIENT_SECRET=...
 | Composant | Outil | Métriques |
 |-----------|-------|-----------|
 | **API** | FastAPI /docs + logs | Latence, erreurs |
-| **Tests** | pytest | 131 tests, couverture |
+| **Tests** | pytest | 164 tests, couverture |
 | **IA** | Repli local journalisé | Appels réussis / replis |
 | **Sources** | Statut par anomalie | vérifiée / introuvable / erreur |
 
@@ -601,7 +601,7 @@ python run_api.py   # → http://localhost:8000/docs
 
 ### Tests
 ```bash
-python -m pytest tests -q    # 131 passed
+python -m pytest tests -q    # 164 passed
 ```
 
 ### Production (future)

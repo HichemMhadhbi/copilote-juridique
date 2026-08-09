@@ -12,7 +12,7 @@ Une application qui analyse des documents juridiques (pactes d'associés, statut
 
 ### Chiffres clés
 - **~6 700 lignes de code Python** (30+ fichiers)
-- **131 tests automatisés** qui passent tous
+- **164 tests automatisés** qui passent tous
 - **6 formats de fichiers** supportés : PDF, Word (docx), images (PNG/JPG/JPEG), texte (TXT), PDF scannés (OCR Tesseract)
 - **19 règles de contrôle** juridiques déterministes (dont 6 règles de risques futurs)
 - **18 entrées** dans la base juridique, **réellement interrogées** à chaque analyse (RAG-lite)
@@ -111,7 +111,7 @@ Le tout est orchestré par `services/analysis_service.py` (fonction `analyze_doc
 | `styles.py` | Thème professionnel navy/or (CSS complet) |
 | `chat_display.py` | Affichage de la conversation + conversion Markdown→HTML |
 
-### `tests/` — Les tests (131 au total)
+### `tests/` — Les tests (164 au total)
 | Fichier | Rôle |
 |---------|------|
 | `test_extraction.py` | Extraction (dates, montants, parties, articles, cas vides) |
@@ -207,7 +207,7 @@ L'utilisateur dépose les deux fichiers. Le système :
 
 ## 7. Tests et qualité
 
-**131 tests, tous au vert** (`python -m pytest tests/ -v`) :
+**164 tests, tous au vert** (`python -m pytest tests/ -v`) :
 
 | Module | Nombre | Ce qui est vérifié |
 |--------|--------|--------------------|
@@ -217,9 +217,13 @@ L'utilisateur dépose les deux fichiers. Le système :
 | Base juridique (RAG-lite) | 11 | Chargement, recherche par pertinence, intégration pipeline |
 | Repli LLM | 10 | Comportement sans clé, clé invalide, échec d'appel, analyse de clauses |
 | Références Légifrance | 10 | Normalisation des références (forme canonique), liens de recherche |
-| API / pipeline / OCR / qualité | 23 | Endpoints, pipeline complet, OCR, qualité des documents |
-
-En plus : `test_pipeline.py` (pipeline complet) et `test_api.py` (endpoints API).
+| API | 12 | Health, analyse 1/n fichiers, rapport, validation des entrées |
+| Chat | 11 | Réponses locales : parties, dates, montants, risques, recommandations, résumé |
+| Validation humaine | 9 | Approuver / rejeter / modifier, résumé, conservation de l'état |
+| Persistance des rapports | 8 | Sauvegarde, chargement, liste, suppression (avec/sans SAVE_REPORTS_TO_DISK) |
+| Export | 5 | Markdown, JSON, PDF (rapport + conversation) |
+| OCR / qualité / pipeline | 15 | OCR, qualité des documents, pipeline d'analyse, documents manquants |
+| **Total** | **164** | **Tous passent ✅** |
 
 ---
 
