@@ -110,3 +110,75 @@ def test_documents_non_societe_aucun_document_manquant():
         {"cours.pdf": "natif"},
     )
     assert rapport["documents_manquants"] == []
+
+
+def _statuts_texte_transports() -> str:
+    return (
+        "STATUTS DE LA SOCIETE TRANSPORTS EXPRESS (SARL)\n"
+        "Article 1 - Forme juridique\n"
+        "La societe est une SARL. La denomination de la SARL est TRANSPORTS EXPRESS.\n"
+        "Article 2 - Objet social\n"
+        "La societe a pour objet le transport routier de marchandises.\n"
+        "Article 3 - Siege social\n"
+        "Le siege social est fixe a Paris.\n"
+        "Article 4 - Duree de la societe\n"
+        "La duree de la societe est fixee a 99 ans.\n"
+        "Article 5 - Capital social\n"
+        "Le capital social est fixe a 50 000 euros, divise en 500 parts sociales.\n"
+        "Article 6 - Gerance\n"
+        "La societe est administree par un gerant.\n"
+        "Article 7 - Cession de parts\n"
+        "Toute cession de parts est soumise a agrement.\n"
+        "Article 8 - Affectation des resultats\n"
+        "Les resultats sont affectes selon la loi.\n"
+        "Article 9 - Dissolution\n"
+        "La societe peut etre dissoute.\n"
+        "Article 10 - Liquidation\n"
+        "La liquidation est regie par la loi.\n"
+    )
+
+
+def test_societes_differentes_comparaison_ecartee():
+    """Un pacte de société A et des statuts de société B ne sont pas comparés."""
+    rapport = analyze_documents(
+        {"pacte_test.pdf": _pacte_texte(), "statuts_test.pdf": _statuts_texte_transports()},
+        {"pacte_test.pdf": "natif", "statuts_test.pdf": "natif"},
+    )
+    assert rapport.get("comparaison_ecartee"), (
+        "Des documents de sociétés différentes doivent lever un avertissement"
+    )
+    assert "sociétés différentes" in rapport["comparaison_ecartee"]
+    assert rapport["incoherences"] == [], (
+        "Aucune incohérence ne doit être produite entre deux sociétés différentes"
+    )
+
+
+def test_societes_differentes_types_corrects():
+    """Chaque document garde son type détecté (pacte + statuts)."""
+    rapport = analyze_documents(
+        {"pacte_test.pdf": _pacte_texte(), "statuts_test.pdf": _statuts_texte_transports()},
+        {"pacte_test.pdf": "natif", "statuts_test.pdf": "natif"},
+    )
+    types = {d["nom"]: d["type"] for d in rapport["documents_analyses"]}
+    assert types["pacte_test.pdf"] == "pacte d'associes"
+    assert types["statuts_test.pdf"] == "statuts de societe"
+
+
+def test_meme_societe_comparaison_conservee():
+    """Deux documents de la même société sont bien comparés."""
+    rapport = analyze_documents(
+        {
+            "pacte_test.pdf": _pacte_texte(),
+            "statuts_test.pdf": (
+                "STATUTS DE LA SOCIETE TOP LEGAL CONSEIL (SARL)\n"
+                "Article 1 - Forme juridique\n"
+                "La denomination de la SARL est TOP LEGAL CONSEIL.\n"
+                "Article 2 - Capital social\n"
+                "Le capital social est fixe a 50 000 euros.\n"
+            ),
+        },
+        {"pacte_test.pdf": "natif", "statuts_test.pdf": "natif"},
+    )
+    assert not rapport.get("comparaison_ecartee"), (
+        "Deux documents de la même société doivent rester comparés"
+    )

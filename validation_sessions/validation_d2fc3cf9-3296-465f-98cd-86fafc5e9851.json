@@ -1,0 +1,14 @@
+{
+  "anomalie_1": {
+    "finding_id": "anomalie_1",
+    "statut": "en_attente",
+    "date_enregistrement": "2026-08-11T22:33:42.661000",
+    "action": "en_attente"
+  },
+  "anomalie_2": {
+    "finding_id": "anomalie_2",
+    "statut": "en_attente",
+    "date_enregistrement": "2026-08-11T22:33:42.661000",
+    "action": "en_attente"
+  }
+}

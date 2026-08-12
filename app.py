@@ -6,7 +6,8 @@ Interface professionnelle : documents, analyse, chatbot.
 
 import streamlit as st
 
-import services.llm_service as llm_service
+from typing import Any
+
 from config_app import TYPICAL_QUESTIONS, SUPPORTED_FORMATS
 from services.document_service import extract_all_documents_with_status
 from services.analysis_service import analyze_documents
@@ -23,12 +24,13 @@ from ui.components import (
     render_status_banner,
     render_section_title,
     render_metric_cards,
-    render_documents_table,
     render_entities_panel,
     render_anomalie_card,
     render_incoherence_card,
     render_question_preview,
     render_validation_summary,
+    TYPE_LABELS_HUMAIN,
+    NATURE_CONTROLE_HUMAIN,
 )
 from ui.chat_display import render_chat_history, _md_to_html
 from ui.styles import inject_global_styles
@@ -58,6 +60,9 @@ def init_session_state():
 
 
 def reset_session():
+    report = st.session_state.get("report")
+    if report:
+        validation_service.reset_saved_state(report.get("rapport_id", "session"))
     st.session_state.conversation_history = []
     st.session_state.documents = {}
     st.session_state.report = None
@@ -84,15 +89,6 @@ def render_sidebar():
     )
     formats_str = ", ".join(SUPPORTED_FORMATS.keys())
     st.sidebar.caption(f"Formats acceptés : {formats_str}")
-
-    llm_cfg = llm_service.get_llm_config()
-    if llm_cfg:
-        st.sidebar.caption(
-            f"Mode IA : **{llm_cfg['provider'].title()}** actif "
-            "(réponses enrichies, repli automatique si échec)"
-        )
-    else:
-        st.sidebar.caption("Mode IA : désactivé — réponses locales (ajoutez une clé dans .env)")
 
     if st.sidebar.button("Analyser le dossier", type="primary", use_container_width=True):
         if not uploaded_files:
@@ -138,7 +134,7 @@ def render_sidebar():
             .get("types_documents", {})
         )
         for name, doc_type in types.items():
-            label = doc_type if doc_type != "non_classe" else "non classé"
+            label = TYPE_LABELS_HUMAIN.get(doc_type, doc_type or "Non reconnu")
             st.sidebar.markdown(f"• **{name}** — {label}")
         if st.session_state.get("report_saved_to"):
             st.sidebar.caption(f"💾 Rapport enregistré : {st.session_state.report_saved_to}")
@@ -204,23 +200,28 @@ def render_analysis_mode():
     if not require_analyzed():
         return
 
-    render_section_title("Rapport d'analyse", "Synthèse de l'analyse juridique automatique")
+    render_section_title("Analyse du dossier", "Contrôle juridique automatique de vos documents")
 
     report = st.session_state.report
     render_metric_cards(report)
 
     synthese = report.get("synthese_intelligente")
     if synthese:
-        render_section_title("Synthèse intelligente", "Analyse approfondie générée par IA")
-        st.html(_md_to_html(synthese))
-
-    st.divider()
-
-    render_section_title("Documents analysés", "Typologie détectée automatiquement")
-    render_documents_table(
-        report.get("documents_analyses", []),
-        report.get("informations_principales", {}).get("statut_lecture", {}),
-    )
+        render_section_title("Synthèse de l'analyse", "Résumé clair et actionnable du dossier")
+        report_id = report.get("rapport_id", "session")
+        synth_key = f"synth_editee_{report_id}"
+        if synth_key not in st.session_state:
+            st.session_state[synth_key] = synthese
+        with st.expander("✏️ Modifier la synthèse (optionnel)"):
+            st.caption(
+                "La synthèse est générée automatiquement à partir des documents "
+                "analysés. Le juriste peut la corriger avant export."
+            )
+            edited = st.text_area("Texte de la synthèse", height=200, key=synth_key)
+            if st.button("Enregistrer la synthèse", key=f"synth_save_{report_id}"):
+                st.session_state[synth_key] = edited.strip() or synthese
+                st.rerun()
+        st.html(_md_to_html(st.session_state[synth_key]))
 
     docs_manquants = report.get("documents_manquants", [])
     if docs_manquants:
@@ -232,40 +233,38 @@ def render_analysis_mode():
 
     infos = report.get("informations_principales", {})
     qualites = infos.get("qualite_documents", {})
-    problemes = [
-        f"**{nom}** : {q.get('detail', '')}"
-        for nom, q in qualites.items()
-        if q.get("detail") != "lecture correcte"
-    ]
+    _QUALITE_DETAIL_LABELS = {
+        "illisible": "document illisible",
+        "ocr_faible": "texte difficilement lisible — à vérifier",
+        "page_manquante": "page manquante probable",
+        "incomplet": "document peut-être incomplet",
+    }
+    problemes = []
+    for nom, q in qualites.items():
+        detail = q.get("detail", "")
+        if detail == "lecture correcte":
+            continue
+        human = "; ".join(
+            _QUALITE_DETAIL_LABELS.get(part.strip(), part.strip())
+            for part in detail.split(";")
+        )
+        problemes.append(f"**{nom}** : {human}")
     if problemes:
         st.warning("**Qualité de lecture des documents :**\n" + "\n".join(problemes))
 
     if infos.get("regles_controle_appliquees") is False:
         st.info(
-            "**Aucun document de type pacte d'associés, statuts, procès-verbal ou "
-            "modification statutaire détecté.** Les règles de contrôle spécifiques aux "
-            "sociétés ne sont donc pas appliquées et aucune anomalie n'est rapportée : "
-            "ce document est analysé en lecture (cours, manuel, contrat hors société...)."
-        )
-
-    sources = infos.get("sources_officielles", {})
-    if sources:
-        piste_ok = sources.get("piste_token_configured") is True
-        verif_active = sources.get("verification_active") is True
-        verifiees = sources.get("references_verifiees_piste", 0)
-        st.info(
-            f"**Sources officielles :** {sources.get('anomalies_liees_a_legifrance', 0)} "
-            f"anomalie(s) liée(s) à Légifrance · Service PISTE "
-            f"{'✅ configuré' if piste_ok else '⚠️ non configuré (recherche Légifrance en mode lien)'} "
-            f"{'· vérification live active' if verif_active else ''} "
-            f"{f'· {verifiees} référence(s) vérifiée(s) dans Légifrance' if verifiees else ''}"
-            f"· {sources.get('anomalies_reference_fictive', 0)} référence(s) fictive(s) "
-            f"signalée(s) à vérifier."
+            "**Aucun document de société (pacte d'associés, statuts, procès-verbal ou "
+            "modification statutaire) n'a été détecté.** Les contrôles juridiques "
+            "spécifiques aux sociétés ne s'appliquent donc pas à ce dossier."
         )
 
     st.divider()
 
-    render_section_title("Informations clés", "Entités extraites automatiquement du texte")
+    render_section_title(
+        "Points clés des documents",
+        "Informations essentielles extraites automatiquement (société, associés, montants, dates)",
+    )
     render_entities_panel(infos.get("entites_extraites", {}))
 
     anomalies = report.get("anomalies_juridiques", [])
@@ -275,16 +274,36 @@ def render_analysis_mode():
             f"Anomalies juridiques ({len(anomalies)})",
             "Points de vigilance identifiés par les règles de contrôle",
         )
+        docs_by_name = {
+            d.get("nom", ""): TYPE_LABELS_HUMAIN.get(d.get("type", ""), d.get("type", ""))
+            for d in report.get("documents_analyses", [])
+        }
+        state_val = st.session_state.get("validation_state") or {}
         for i, a in enumerate(anomalies, 1):
-            render_anomalie_card(i, a)
+            a_aff = dict(a)
+            statut_val = ""
+            val = state_val.get(f"anomalie_{i}", {})
+            if val.get("statut") == "modifie" and val.get("nouveau_contenu"):
+                statut_val = "modifie"
+                nc = val["nouveau_contenu"]
+                if nc.get("explication"):
+                    a_aff["explication"] = nc["explication"]
+                if nc.get("correction_recommandee"):
+                    a_aff["correction_recommandee"] = nc["correction_recommandee"]
+            render_anomalie_card(i, a_aff, docs_by_name, statut_validation=statut_val)
         render_validation_section()
+
+    comparaison_ecartee = report.get("comparaison_ecartee")
+    if comparaison_ecartee:
+        st.divider()
+        st.warning(comparaison_ecartee)
 
     incoherences = report.get("incoherences", [])
     if incoherences:
         st.divider()
         render_section_title(
             f"Incohérences entre documents ({len(incoherences)})",
-            "Divergences relevées lors de la comparaison",
+            "Divergences relevées entre le pacte d'associés et les statuts",
         )
         for i, inc in enumerate(incoherences, 1):
             render_incoherence_card(i, inc)
@@ -292,10 +311,10 @@ def render_analysis_mode():
     st.divider()
 
     render_section_title("Export", "Téléchargez votre rapport au format PDF")
-    pdf_bytes = st.session_state.get("report_pdf")
-    if pdf_bytes is None:
-        pdf_bytes = export_report_as_pdf(report)
-        st.session_state["report_pdf"] = pdf_bytes
+    report_export = _rapport_avec_validations(
+        report, st.session_state.get("validation_state") or {}
+    )
+    pdf_bytes = export_report_as_pdf(report_export)
     from datetime import datetime
     st.download_button(
         "📄 Télécharger le rapport (PDF)",
@@ -306,6 +325,51 @@ def render_analysis_mode():
         use_container_width=True,
         help="Rapport professionnel en PDF, prêt à partager ou imprimer.",
     )
+
+
+def _validations_pour_export(report: dict[str, Any], state: dict[str, Any]) -> list[dict[str, Any]]:
+    """Liste des validations faites par le juriste, à intégrer au rapport exporté."""
+    result: list[dict[str, Any]] = []
+    for i, a in enumerate(report.get("anomalies_juridiques", []), 1):
+        val = state.get(f"anomalie_{i}", {})
+        statut = val.get("statut", "en_attente")
+        if statut == "en_attente":
+            continue
+        result.append({
+            "numero": i,
+            "nature": NATURE_CONTROLE_HUMAIN.get(
+                a.get("nature_controle", ""), a.get("nature_controle", "Anomalie")
+            ),
+            "statut": statut,
+            "commentaire_juriste": val.get("commentaire_juriste", ""),
+            "motif_rejet": val.get("motif_rejet", ""),
+            "nouveau_contenu": val.get("nouveau_contenu") or {},
+        })
+    return result
+
+
+def _rapport_avec_validations(report: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
+    """Copie du rapport prête pour l'export :
+    - les anomalies « modifiées » sont remplacées par le texte corrigé du juriste
+      (comme dans l'interface) ;
+    - la liste des validations est ajoutée pour la section « Validation humaine ».
+    """
+    rapport = dict(report)
+    anomalies = []
+    for i, a in enumerate(report.get("anomalies_juridiques", []), 1):
+        a_aff = dict(a)
+        val = state.get(f"anomalie_{i}", {})
+        if val.get("statut") == "modifie" and val.get("nouveau_contenu"):
+            nc = val["nouveau_contenu"]
+            if nc.get("explication"):
+                a_aff["explication"] = nc["explication"]
+            if nc.get("correction_recommandee"):
+                a_aff["correction_recommandee"] = nc["correction_recommandee"]
+            a_aff["statut_validation"] = "modifie"
+        anomalies.append(a_aff)
+    rapport["anomalies_juridiques"] = anomalies
+    rapport["validations_appliquees"] = _validations_pour_export(report, state)
+    return rapport
 
 
 def render_validation_section():
@@ -324,18 +388,100 @@ def render_validation_section():
     render_validation_summary(validation_service.summary(report_id, state))
 
     anomalies = report.get("anomalies_juridiques", [])
+    priorite_labels = {
+        "bloquant": "Bloquant",
+        "important": "Important",
+        "alerte": "Alerte",
+    }
+
+    en_attente = sum(
+        1 for v in state.values() if v.get("statut", "en_attente") == "en_attente"
+    )
+    if en_attente > 1:
+        with st.expander("⚡ Actions groupées", expanded=True):
+            st.caption(
+                f"{en_attente} anomalie(s) en attente : approuvez ou rejetez "
+                "l'ensemble en un clic, puis affinez au cas par cas."
+            )
+            comment_bulk = st.text_input(
+                "Commentaire commun (optionnel)",
+                key="val_bulk_comment",
+                placeholder="Ex. : Validé après relecture par le cabinet.",
+            )
+            b1, b2 = st.columns(2)
+            if b1.button("✅ Approuver tout", type="primary", use_container_width=True):
+                try:
+                    new_state = validation_service.apply_bulk_action(
+                        report_id,
+                        "approuver",
+                        comment=comment_bulk or "",
+                        current_state=st.session_state.validation_state,
+                    )
+                    st.session_state.validation_state = new_state
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
+            if b2.button("❌ Tout rejeter", use_container_width=True):
+                try:
+                    new_state = validation_service.apply_bulk_action(
+                        report_id,
+                        "rejeter",
+                        comment=comment_bulk or "",
+                        current_state=st.session_state.validation_state,
+                    )
+                    st.session_state.validation_state = new_state
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
+
     for i, a in enumerate(anomalies, 1):
         finding_id = validation_service._finding_id(i)
         val = state.get(finding_id, {})
         statut = val.get("statut", "en_attente")
         statut_label = VALIDATION_STATUT_LABELS.get(statut, statut)
-        nature = a.get("nature_controle", "Anomalie")
+        nature = NATURE_CONTROLE_HUMAIN.get(a.get("nature_controle", ""), a.get("nature_controle", "Anomalie"))
+        priorite = priorite_labels.get(a.get("priorite", ""), a.get("priorite", ""))
+        explication = a.get("explication", "")
+        docs_a_verifier = a.get("documents_a_verifier", [])
+
         with st.container(border=True):
             st.markdown(f"**Anomalie {i} — {nature}** · Statut : **{statut_label}**")
-            if val.get("commentaire_juriste"):
-                st.caption(f"Commentaire : {val['commentaire_juriste']}")
-            if val.get("motif_rejet"):
-                st.caption(f"Motif : {val['motif_rejet']}")
+            apercu = explication if len(explication) <= 170 else explication[:170] + "…"
+            infos = []
+            if priorite:
+                infos.append(priorite)
+            if apercu:
+                infos.append(apercu)
+            if docs_a_verifier:
+                infos.append(", ".join(docs_a_verifier))
+            st.caption(" · ".join(infos))
+
+            if statut != "en_attente":
+                if val.get("commentaire_juriste"):
+                    st.caption(f"Commentaire : {val['commentaire_juriste']}")
+                if val.get("motif_rejet"):
+                    st.caption(f"Motif : {val['motif_rejet']}")
+                if statut == "modifie" and val.get("nouveau_contenu"):
+                    nc = val["nouveau_contenu"]
+                    st.caption("✏️ Contenu corrigé par le juriste :")
+                    if nc.get("explication"):
+                        st.caption(nc["explication"])
+                    if nc.get("correction_recommandee"):
+                        st.caption(nc["correction_recommandee"])
+                if st.button("↩️ Remettre en attente", key=f"val_reset_{i}"):
+                    reste = {
+                        k: v for k, v in st.session_state.validation_state.items()
+                        if k != finding_id
+                    }
+                    reste[finding_id] = {
+                        "finding_id": finding_id,
+                        "statut": "en_attente",
+                        "action": "en_attente",
+                    }
+                    st.session_state.validation_state = reste
+                    st.rerun()
+                continue
+
             c1, c2 = st.columns([1, 3])
             action = c1.selectbox(
                 "Action",
@@ -344,10 +490,35 @@ def render_validation_section():
                 key=f"val_action_{i}",
                 label_visibility="collapsed",
             )
+            nouveau_contenu = None
             if action == "Rejeter":
                 comment = c2.text_input(
                     "Motif du rejet (obligatoire)", key=f"val_reason_{i}", placeholder="Pourquoi cette anomalie n'est pas retenue ?"
                 )
+            elif action == "Modifier":
+                st.caption(
+                    "**Correction du texte par le juriste** : le contenu corrigé "
+                    "remplace l'original dans le rapport."
+                )
+                expl_mod = st.text_area(
+                    "Nouvelle explication",
+                    key=f"val_edit_expl_{i}",
+                    value=a.get("explication", ""),
+                    height=90,
+                )
+                corr_mod = st.text_area(
+                    "Nouvelle correction recommandée",
+                    key=f"val_edit_corr_{i}",
+                    value=a.get("correction_recommandee", ""),
+                    height=70,
+                )
+                comment = st.text_input(
+                    "Commentaire (optionnel)", key=f"val_comment_{i}", placeholder="Précision du juriste..."
+                )
+                nouveau_contenu = {
+                    "explication": expl_mod,
+                    "correction_recommandee": corr_mod,
+                }
             else:
                 comment = c2.text_input(
                     "Commentaire (optionnel)", key=f"val_comment_{i}", placeholder="Précision du juriste..."
@@ -355,13 +526,16 @@ def render_validation_section():
             if st.button("Appliquer", key=f"val_btn_{i}", type="primary"):
                 act_map = {"Approuver": "approuver", "Rejeter": "rejeter", "Modifier": "modifier"}
                 try:
+                    kwargs: dict[str, Any] = {"current_state": st.session_state.validation_state}
+                    if action == "Modifier":
+                        nouveau_contenu["commentaire_juriste"] = comment or ""
+                        kwargs["new_content"] = nouveau_contenu
+                    elif action == "Rejeter":
+                        kwargs["reason"] = comment or ""
+                    else:
+                        kwargs["comment"] = comment or ""
                     new_state = validation_service.apply_action(
-                        report_id,
-                        finding_id,
-                        act_map[action],
-                        comment=comment or "",
-                        reason=comment or "",
-                        current_state=st.session_state.validation_state,
+                        report_id, finding_id, act_map[action], **kwargs
                     )
                     st.session_state.validation_state = new_state
                     st.rerun()

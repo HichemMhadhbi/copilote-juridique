@@ -86,6 +86,16 @@ def normalize_reference(reference: str) -> str:
     return reference.strip()
 
 
+def _est_reference_legale(reference: str) -> bool:
+    """True si la référence ressemble à un article de code (ex. « L223-14 », « 1103 »).
+
+    Les sources génériques (ex. « Modèle de pacte », « Principes généraux du
+    droit des sociétés ») ne sont pas des références d'articles : la recherche
+    Légifrance n'a pas de sens pour elles.
+    """
+    return bool(_REF_PATTERN.search(reference or ""))
+
+
 _CODE_HINTS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"proc(?:\.|\b)\s*(?:\.)?\s*civ", re.IGNORECASE), "Code de procédure civile"),
     (re.compile(r"c\.?\s*proc", re.IGNORECASE), "Code de procédure civile"),
@@ -132,7 +142,7 @@ def _default_code(ref: str) -> str:
 def legifrance_search_url(reference: str) -> str:
     """Retourne un lien de recherche Légifrance pour une référence donnée."""
     ref = normalize_reference(reference)
-    if not ref:
+    if not ref or not _est_reference_legale(reference):
         return ""
     return _LEGIFRANCE_SEARCH.format(q=urllib.parse.quote(ref))
 
@@ -344,7 +354,7 @@ def fetch_article_text(reference: str, timeout: int = 15) -> Optional[str]:
         Texte de l'article, ou None si indisponible/erreur (repli local).
     """
     ref = normalize_reference(reference)
-    if not ref or not piste_configured():
+    if not ref or not _est_reference_legale(reference) or not piste_configured():
         return None
 
     token = _get_access_token(timeout=timeout)
@@ -375,11 +385,14 @@ def _verifier_reference(
 
     Retourne (statut, identifiant LEGIARTI, texte officiel).
     Statuts possibles : "verifiee", "introuvable", "erreur", "non_configure",
-    "vide".
+    "vide", "source_non_legale".
     """
     ref = normalize_reference(source)
     if not ref:
         return ("vide", None, None)
+
+    if not _est_reference_legale(source):
+        return ("source_non_legale", None, None)
 
     if ref in _verification_cache:
         cached = _verification_cache[ref]
@@ -445,6 +458,10 @@ def enrich_report_with_sources(
             anom["source_verifiee"] = False
             anom["source_statut"] = "fictive"
             continue
+        if not _est_reference_legale(source):
+            anom["source_verifiee"] = False
+            anom["source_statut"] = "source_non_legale"
+            continue
         url = legifrance_search_url(source)
         if url:
             anom["legifrance_url"] = url
@@ -457,6 +474,7 @@ def enrich_report_with_sources(
                 anom["legifrance_id"] = identifiant
             if texte:
                 anom["texte_officiel"] = texte[:400]
+                anom["texte_officiel_complet"] = texte
             if statut == "verifiee":
                 verifiees += 1
         else:

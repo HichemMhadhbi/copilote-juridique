@@ -144,6 +144,38 @@ class TestExtractParties:
         assert any("INNOV" in n for n in noms)
         assert any("CONSULT" in n for n in noms)
 
+    def test_dedoublonne_variantes_ocr(self) -> None:
+        """Les variantes de fragmentation OCR d'un même nom sont dédoublonnées."""
+        texte = (
+            "Monsieur CHERIF Mohammed\n"
+            "Monsieur ZAFFATI Nasreddine\n"
+            "Monsieur ZAFFATTI Mohamed Bechir\n"
+            "Monsieur Nasreddine ZA FFATI 57 a 99\n"
+            "Monsieur ZAFFAT TI Nasreddine est nomme gerant.\n"
+        )
+        ext = EntityExtractor(texte)
+        result = ext.extract_all()
+        noms = [p["nom"] for p in result["parties"]]
+        assert all("ZA FFATI" not in n for n in noms), (
+            f"« ZA FFATI » (fragment OCR) ne doit pas être listé : {noms}"
+        )
+        assert all("ZAFFAT TI" not in n for n in noms), (
+            f"« ZAFFAT TI » (fragment OCR) ne doit pas être listé : {noms}"
+        )
+        assert any(n == "ZAFFATI" for n in noms), f"« ZAFFATI » doit rester présent : {noms}"
+        assert any(n == "ZAFFATTI" for n in noms), f"« ZAFFATTI » doit rester présent : {noms}"
+        assert "CHERIF" in noms
+
+    def test_noms_vraiment_differents_non_fusionnes(self) -> None:
+        """Deux noms différents (même proches) ne sont pas dédoublonnés."""
+        texte = "Monsieur ZAFFATI Nasreddine\nMonsieur ZAFFATTI Mohamed Bechir\n"
+        ext = EntityExtractor(texte)
+        result = ext.extract_all()
+        noms = [p["nom"] for p in result["parties"]]
+        assert "ZAFFATI" in noms and "ZAFFATTI" in noms, (
+            f"ZAFFATI et ZAFFATTI sont deux personnes distinctes : {noms}"
+        )
+
 
 class TestExtractArticles:
     """Teste l'extraction des références à des articles."""
@@ -201,3 +233,23 @@ class TestClauseExtractor:
         assert any("Objet social" in t for t in titres)
         assert any("Capital social" in t for t in titres)
         assert len(clauses) >= 3
+
+
+class TestExtractPlaceholders:
+    """Teste l'extraction des placeholders de modèles non renseignés."""
+
+    def test_extract_date_placeholder(self) -> None:
+        """Un '[date]' est extrait comme placeholder."""
+        texte = "Le pacte est conclu le [date]. Capital : [SEUIL] euros."
+        ext = EntityExtractor(texte)
+        result = ext.extract_all()
+        placeholders = [p["valeur"] for p in result["placeholders"]]
+        assert "[date]" in placeholders
+        assert "[SEUIL]" in placeholders
+
+    def test_no_placeholders(self) -> None:
+        """Un texte sans crochets ne produit aucun placeholder."""
+        texte = "Le pacte est conclu le 15 mars 2024."
+        ext = EntityExtractor(texte)
+        result = ext.extract_all()
+        assert result["placeholders"] == []

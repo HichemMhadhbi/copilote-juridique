@@ -23,7 +23,16 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from report_generator.report_export import export_to_markdown
+from report_generator.report_export import (
+    export_to_markdown,
+    TYPE_LABELS_HUMAIN,
+    INCOH_TYPE_HUMAIN,
+    SEVERITE_HUMAIN,
+    STATUT_LECTURE_HUMAIN,
+    NATURE_CONTROLE_HUMAIN,
+    CONTROLE_FONDEMENT,
+    points_cles_document,
+)
 
 NAVY = colors.HexColor("#16213E")
 NAVY_LIGHT = colors.HexColor("#243A63")
@@ -124,6 +133,10 @@ def _export_report_as_pdf(report: dict[str, Any]) -> bytes:
         name="Footnote", fontName=font_regular, fontSize=8, leading=11,
         textColor=MUTED,
     ))
+    styles.add(ParagraphStyle(
+        name="Warning", fontName=font_regular, fontSize=9, leading=13,
+        textColor=colors.HexColor("#8A5A00"),
+    ))
 
     def h(text: str) -> str:
         return (text or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -180,18 +193,25 @@ def _export_report_as_pdf(report: dict[str, Any]) -> bytes:
     story.append(Spacer(1, 6))
 
     # -- Documents analysés
+    infos = report.get("informations_principales", {})
     docs = report.get("documents_analyses", [])
     if docs:
+        statuts_lecture = infos.get("statut_lecture", {})
         rows = [[Paragraph("<b>Document</b>", styles["Small"]),
-                 Paragraph("<b>Type détecté</b>", styles["Small"]),
-                 Paragraph("<b>Statut</b>", styles["Small"])]]
+                 Paragraph("<b>Type de document</b>", styles["Small"]),
+                 Paragraph("<b>Lecture du fichier</b>", styles["Small"])]]
         for d in docs:
+            nom = d.get("nom", "")
+            type_label = TYPE_LABELS_HUMAIN.get(d.get("type", ""), d.get("type", "") or "Non reconnu")
+            lecture = STATUT_LECTURE_HUMAIN.get(
+                statuts_lecture.get(nom, ""), statuts_lecture.get(nom, "")
+            ) or "—"
             rows.append([
-                Paragraph(h(d.get("nom", "")), styles["Small"]),
-                Paragraph(h(d.get("type", "")), styles["Small"]),
-                Paragraph(h(d.get("statut", "")), styles["Small"]),
+                Paragraph(h(nom), styles["Small"]),
+                Paragraph(h(type_label), styles["Small"]),
+                Paragraph(h(lecture), styles["Small"]),
             ])
-        table = Table(rows, colWidths=[95 * mm, 50 * mm, 27 * mm])
+        table = Table(rows, colWidths=[78 * mm, 56 * mm, 40 * mm])
         table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), NAVY),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -235,6 +255,9 @@ def _export_report_as_pdf(report: dict[str, Any]) -> bytes:
 
     # -- Anomalies juridiques
     anomalies = report.get("anomalies_juridiques", [])
+    docs_by_name = {
+        d.get("nom", ""): d.get("type", "") for d in report.get("documents_analyses", [])
+    }
     section(f"3. Anomalies juridiques ({len(anomalies)})")
     if not anomalies:
         story.append(Paragraph("Aucune anomalie détectée.", styles["Body"]))
@@ -242,14 +265,29 @@ def _export_report_as_pdf(report: dict[str, Any]) -> bytes:
         priorite = a.get("priorite", "alerte")
         p_hex = {"bloquant": "#C0392B", "important": "#C77D2E"}.get(priorite, "#5D6B82")
         p_label = {"bloquant": "Bloquant", "important": "Important", "alerte": "Alerte"}.get(priorite, "Alerte")
+        nature_label = NATURE_CONTROLE_HUMAIN.get(
+            a.get("nature_controle", ""), a.get("nature_controle", "Anomalie")
+        )
         story.append(Paragraph(
-            f"{i}. <b>{h(a.get('nature_controle', 'Anomalie'))}</b> "
+            f"{i}. <b>{h(nature_label)}</b> "
             f"<font color='{p_hex}'><b>[{p_label}]</b></font>",
             styles["Body"],
         ))
         if a.get("explication"):
             story.append(Paragraph(h(a["explication"]), styles["Body"]))
+        if a.get("statut_validation") == "modifie":
+            story.append(Paragraph(
+                "<i>✏️ Texte corrigé par le juriste.</i>", styles["Small"],
+            ))
+        contexte = a.get("contexte", "")
+        if contexte:
+            story.append(Paragraph(
+                f"<b>Dans le document :</b> {h(contexte)}", styles["Small"],
+            ))
         details = []
+        fondement = CONTROLE_FONDEMENT.get(a.get("nature_controle", ""))
+        if fondement:
+            details.append(f"<b>Contrôle :</b> {h(fondement)}")
         if a.get("source_juridique"):
             details.append(f"<b>Source juridique :</b> {h(a['source_juridique'])}")
         url = a.get("legifrance_url")
@@ -259,11 +297,24 @@ def _export_report_as_pdf(report: dict[str, Any]) -> bytes:
             )
         elif a.get("source_statut") == "introuvable":
             details.append("<b>Vérification :</b> référence introuvable dans Légifrance (à vérifier)")
+        elif a.get("source_statut") == "source_non_legale":
+            details.append("<b>Vérification :</b> source non réglementaire (modèle ou principes généraux, pas une référence d'article)")
+        texte_officiel = a.get("texte_officiel", "")
+        texte_complet = a.get("texte_officiel_complet", "")
+        if a.get("source_statut") == "verifiee" and texte_officiel:
+            tronque = bool(texte_complet) and len(texte_complet) > len(texte_officiel)
+            libelle = "Texte officiel (extrait)" if tronque else "Texte officiel (article complet)"
+            details.append(f"<b>{libelle} :</b> «{h(texte_officiel)}{'…' if tronque else ''}»")
         if a.get("correction_recommandee"):
             details.append(f"<b>Correction recommandée :</b> {h(a['correction_recommandee'])}")
         docs_verif = a.get("documents_a_verifier", [])
         if docs_verif:
-            details.append(f"<b>Documents à vérifier :</b> {h(', '.join(docs_verif))}")
+            libelles = []
+            for dv in docs_verif:
+                type_doc = TYPE_LABELS_HUMAIN.get(docs_by_name.get(dv, ""), docs_by_name.get(dv, ""))
+                libelles.append(f"{type_doc} ({dv})" if type_doc else dv)
+            pluriel = "Document concerné" if len(libelles) == 1 else "Documents concernés"
+            details.append(f"<b>{pluriel} :</b> {h(', '.join(libelles))}")
         if details:
             story.append(Paragraph("<br/>".join(details), styles["Small"]))
         story.append(Spacer(1, 5))
@@ -271,34 +322,68 @@ def _export_report_as_pdf(report: dict[str, Any]) -> bytes:
     # -- Incohérences
     incoherences = report.get("incoherences", [])
     section(f"4. Incohérences entre documents ({len(incoherences)})")
+    comparaison_ecartee = report.get("comparaison_ecartee")
+    if comparaison_ecartee:
+        story.append(Paragraph(f"⚠️ {h(comparaison_ecartee)}", styles["Warning"]))
     if not incoherences:
         story.append(Paragraph("Aucune incohérence détectée.", styles["Body"]))
     for inc in incoherences:
+        type_label = INCOH_TYPE_HUMAIN.get(inc.get("type", ""), inc.get("type", "") or "Incohérence")
+        sev = inc.get("severite", "")
+        sev_label = SEVERITE_HUMAIN.get(sev, sev)
+        fichiers = inc.get("documents") or []
+        if len(fichiers) == 1:
+            loc = f" — Fichier concerné : {h(fichiers[0])}"
+        elif len(fichiers) >= 2:
+            loc = f" — Concerne les 2 fichiers : {h(fichiers[0])} et {h(fichiers[1])}"
+        else:
+            loc = ""
         story.append(Paragraph(
-            f"• <b>{h(inc.get('type', ''))}</b> ({h(inc.get('severite', ''))}) : {h(inc.get('description', ''))}",
+            f"• <b>{h(type_label)}</b> ({h(sev_label)}) : {h(inc.get('description', ''))}{loc}",
             styles["Body"],
         ))
 
-    # -- Entités extraites
+    # -- Points clés des documents
     entites = infos.get("entites_extraites", {})
     if entites:
-        section("5. Entités extraites")
+        section("5. Points clés des documents")
         for doc_name, doc_entites in entites.items():
             story.append(Paragraph(f"<b>{h(doc_name)}</b>", styles["Body"]))
-            lines = []
-            dates = doc_entites.get("dates", [])
-            if dates:
-                lines.append(f"Dates : {h(', '.join(dict.fromkeys(d['valeur'] for d in dates)))}")
-            parties = doc_entites.get("parties", [])
-            if parties:
-                lines.append(f"Organisations : {h(', '.join(dict.fromkeys(p.get('nom', '') for p in parties)))}")
-            montants = doc_entites.get("montants", [])
-            if montants:
-                lines.append(f"Montants : {h(', '.join(dict.fromkeys(m.get('valeur', '') for m in montants)))}")
-            if lines:
-                for line in lines:
-                    story.append(Paragraph(f"– {line}", styles["Small"]))
+            lignes = []
+            for label, valeurs in points_cles_document(doc_entites):
+                if valeurs:
+                    lignes.append(f"{label} : {h(', '.join(valeurs))}")
+            if lignes:
+                for ligne in lignes:
+                    story.append(Paragraph(f"– {ligne}", styles["Small"]))
             story.append(Spacer(1, 4))
+
+    # -- Validation humaine
+    validations = report.get("validations_appliquees", [])
+    if validations:
+        section("6. Validation humaine")
+        statut_labels = {
+            "approuve": "Approuvée",
+            "rejete": "Rejetée",
+            "modifie": "Modifiée",
+        }
+        for v in validations:
+            label = statut_labels.get(v.get("statut"), v.get("statut", ""))
+            lignes_val = [
+                f"{v.get('numero', '')}. <b>{h(v.get('nature', 'Anomalie'))}</b> "
+                f"<b>[{h(label)}]</b>"
+            ]
+            if v.get("commentaire_juriste"):
+                lignes_val.append(f"<b>Commentaire du juriste :</b> {h(v['commentaire_juriste'])}")
+            if v.get("motif_rejet"):
+                lignes_val.append(f"<b>Motif du rejet :</b> {h(v['motif_rejet'])}")
+            nc = v.get("nouveau_contenu") or {}
+            if nc.get("explication"):
+                lignes_val.append(f"<b>Texte corrigé :</b> {h(nc['explication'])}")
+            if nc.get("correction_recommandee"):
+                lignes_val.append(f"<b>Correction recommandée (modifiée) :</b> {h(nc['correction_recommandee'])}")
+            story.append(Paragraph("<br/>".join(lignes_val), styles["Small"]))
+            story.append(Spacer(1, 5))
 
     # -- Pied de page
     story.append(Spacer(1, 8))

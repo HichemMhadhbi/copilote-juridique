@@ -2,10 +2,22 @@
 
 from __future__ import annotations
 
+import base64
 import html
+import os
+from pathlib import Path
 from typing import Any
 
 import streamlit as st
+
+from report_generator.report_export import (
+    TYPE_LABELS_HUMAIN,
+    INCOH_TYPE_HUMAIN,
+    SEVERITE_HUMAIN,
+    NATURE_CONTROLE_HUMAIN,
+    CONTROLE_FONDEMENT,
+    points_cles_document,
+)
 
 RISK_META = {
     "eleve": ("Élevé", "tj-badge eleve"),
@@ -15,33 +27,59 @@ RISK_META = {
     "non_evalue": ("Non évalué", "tj-badge non-evalue"),
 }
 
+_ICON_POINTS_CLES = {
+    "Société": "🏢",
+    "Associés et parties": "👥",
+    "Montants": "💰",
+    "Dates": "📅",
+    "Articles cités": "📄",
+}
+
 
 def _esc(value: Any) -> str:
     return html.escape(str(value or ""))
 
 
 def render_hero_header():
+    logo_tag = "<div class=\"tj-hero-icon\">⚖️</div>"
+
     st.html(
         f"""
         <div class="tj-hero">
-            <div class="tj-brand"><span class="tj-logo">⚖️</span> TOP-JURIDIQUE</div>
-            <h1>Copilote IA Juridique</h1>
-            <p>Analyse intelligente de vos documents juridiques : extraction des informations clés,
-            contrôle réglementaire et rapport professionnel.</p>
+            <div class="tj-hero-top">
+                <div class="tj-brand">{logo_tag}<span class="tj-brand-text">TOP-JURIDIQUE</span></div>
+            </div>
+            <h1>Tableau de bord formaliste</h1>
+            <p>Analyse intelligente de vos documents juridiques : extraction des informations clés, contrôle réglementaire et rapport professionnel.</p>
         </div>
         """
     )
 
 
 def render_sidebar_header():
-    st.sidebar.html(
+    logo_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "ImagesUtilisé", "Top-juridique-logo.png")
+    )
+    if os.path.exists(logo_path):
+        st.sidebar.image(logo_path, width=170)
+    else:
+        st.sidebar.markdown(
+            """
+            <div class="tj-sidebar-logo-fallback">⚖️ TOP-JURIDIQUE</div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.sidebar.markdown(
         """
-        <div class="tj-sidebar-brand">
-            <div class="tj-brand"><span class="tj-logo">⚖️</span> TOP-JURIDIQUE</div>
-            <h2>Espace de travail</h2>
-            <p>Analyse de documents juridiques</p>
+        <div class="tj-sidebar-card tj-sidebar-card-top">
+            <div class="tj-sidebar-intro">
+                <div class="tj-sidebar-intro-title">Espace de travail</div>
+                <div class="tj-sidebar-intro-copy">Analyse de documents juridiques</div>
+            </div>
         </div>
-        """
+        """,
+        unsafe_allow_html=True,
     )
 
 
@@ -93,10 +131,6 @@ def render_metric_cards(report: dict[str, Any]):
     incoherences = report.get("incoherences", [])
     docs = report.get("documents_analyses", [])
 
-    rules_applied = (
-        report.get("informations_principales", {}).get("regles_controle_appliquees") is True
-    )
-
     label, css = RISK_META.get(risque, RISK_META["non_evalue"])
     risque_html = f'<span class="tj-badge {css}">{_esc(label)}</span>'
 
@@ -117,7 +151,7 @@ def render_metric_cards(report: dict[str, Any]):
             <div class="tj-kpi">
                 <div class="kpi-label">Anomalies</div>
                 <div class="kpi-value">{len(anomalies)}</div>
-                <div class="kpi-sub">Règles de contrôle</div>
+                <div class="kpi-sub">À corriger dans les documents</div>
             </div>
             """
         )
@@ -127,7 +161,7 @@ def render_metric_cards(report: dict[str, Any]):
             <div class="tj-kpi">
                 <div class="kpi-label">Incohérences</div>
                 <div class="kpi-value">{len(incoherences)}</div>
-                <div class="kpi-sub">Entre documents</div>
+                <div class="kpi-sub">Entre pacte et statuts</div>
             </div>
             """
         )
@@ -137,7 +171,7 @@ def render_metric_cards(report: dict[str, Any]):
             <div class="tj-kpi">
                 <div class="kpi-label">Documents</div>
                 <div class="kpi-value">{len(docs)}</div>
-                <div class="kpi-sub">{'Contrôle actif' if rules_applied else 'Lecture seule'}</div>
+                <div class="kpi-sub">Documents traités</div>
             </div>
             """
         )
@@ -145,25 +179,32 @@ def render_metric_cards(report: dict[str, Any]):
 
 
 def render_documents_table(documents: list[dict[str, Any]], statuses: dict[str, str] | None = None):
+    """Tableau des documents analysés (nom, type, statut, lecture).
+
+    Conservée pour un éventuel réaffichage ; la vue principale n'affiche plus
+    cette section (les documents apparaissent déjà dans la barre latérale).
+    """
     if not documents:
         return
     STATUS_LABELS = {
-        "natif": "Texte natif",
-        "ocr": "OCR appliqué",
-        "ocr_indisponible": "OCR indisponible",
+        "natif": "Texte lisible",
+        "ocr": "Scan numérisé (texte reconstitué)",
+        "ocr_indisponible": "Scan sans texte (à vérifier)",
         "erreur": "Erreur de lecture",
     }
     rows = []
     for d in documents:
         nom = d.get("nom", "")
+        type_raw = d.get("type", "")
+        statut_raw = d.get("statut", "")
         row = {
-            "Document": _esc(nom),
-            "Type détecté": _esc(d.get("type", "")),
-            "Statut": _esc(d.get("statut", "")),
+            "Document": nom,
+            "Type de document": TYPE_LABELS_HUMAIN.get(type_raw, type_raw or "Non reconnu"),
+            "Statut": {"analyse": "Analysé"}.get(statut_raw, statut_raw or "Analysé"),
         }
         if statuses:
             st_label = STATUS_LABELS.get(statuses.get(nom, ""), statuses.get(nom, ""))
-            row["Lecture"] = _esc(st_label)
+            row["Lecture du fichier"] = st_label
         rows.append(row)
     st.dataframe(
         rows,
@@ -173,59 +214,37 @@ def render_documents_table(documents: list[dict[str, Any]], statuses: dict[str, 
 
 
 def render_entities_panel(entites_extraites: dict[str, Any]):
-    """Affiche proprement les entites extraites (dates, organisations, montants...).
-
-    Les entites sont extraites automatiquement du texte : il s'agit des dates
-    de lois ou d'actes cites, des organisations mentionnees, etc. Pour un
-    document de type manuel/cours, ces elements sont informatifs et ne
-    constituent pas des parties contractantes.
-    """
+    """Affiche les points clés métier extraits de chaque document."""
     if not entites_extraites:
-        st.html('<div class="tj-empty">Aucune entité extraite.</div>')
+        st.html('<div class="tj-empty">Aucun point clé extrait.</div>')
         return
 
     for doc_name, doc_entites in entites_extraites.items():
         with st.container(border=True):
             st.markdown(f"**{_esc(doc_name)}**")
-
-            dates = doc_entites.get("dates", [])
-            if dates:
-                dates_unique = list(dict.fromkeys(d["valeur"] for d in dates))
-                pills = "".join(f'<span class="tj-pill gold">📅 {_esc(d)}</span>' for d in dates_unique)
+            points = points_cles_document(doc_entites)
+            anything = False
+            for label, valeurs in points:
+                if not valeurs:
+                    continue
+                anything = True
+                pills = "".join(
+                    f'<span class="tj-pill">{_esc(v)}</span>' for v in valeurs
+                )
+                icon = _ICON_POINTS_CLES.get(label, "🔹")
                 st.html(
                     f'<div class="tj-entity-block"><div class="tj-entity-label">'
-                    f'<span class="tj-entity-icon">📅</span> Dates</div>'
+                    f'<span class="tj-entity-icon">{icon}</span> {label}</div>'
                     f'<div class="tj-entity-pills">{pills}</div></div>'
                 )
-
-            parties = doc_entites.get("parties", [])
-            if parties:
-                noms = list(dict.fromkeys(p.get("nom", "") for p in parties))
-                pills = "".join(f'<span class="tj-pill">🏢 {_esc(n)}</span>' for n in noms)
-                st.html(
-                    f'<div class="tj-entity-block"><div class="tj-entity-label">'
-                    f'<span class="tj-entity-icon">🏢</span> Organisations</div>'
-                    f'<div class="tj-entity-pills">{pills}</div></div>'
-                )
-
-            montants = doc_entites.get("montants", [])
-            if montants:
-                vals = list(dict.fromkeys(m.get("valeur", "") for m in montants))
-                pills = "".join(f'<span class="tj-pill">💰 {_esc(v)}</span>' for v in vals)
-                st.html(
-                    f'<div class="tj-entity-block"><div class="tj-entity-label">'
-                    f'<span class="tj-entity-icon">💰</span> Montants</div>'
-                    f'<div class="tj-entity-pills">{pills}</div></div>'
-                )
-
+            if not anything:
+                st.caption("Aucune information clé détectée dans ce document.")
             st.caption(
-                "Ces entités sont extraites automatiquement du texte (dates de lois ou d'actes cités, "
-                "organisations mentionnées...). Pour un manuel ou un cours, elles sont informatives : "
-                "il ne s'agit pas de parties contractantes."
+                "Informations clés extraites automatiquement des documents."
             )
 
 
-def render_anomalie_card(index: int, anomalie: dict[str, Any]):
+def render_anomalie_card(index: int, anomalie: dict[str, Any], docs_by_name: dict[str, str] | None = None, statut_validation: str = ""):
     priorite = anomalie.get("priorite", "alerte")
     label = {
         "bloquant": ("Bloquant", "tj-badge eleve"),
@@ -236,39 +255,73 @@ def render_anomalie_card(index: int, anomalie: dict[str, Any]):
 
     explication = anomalie.get("explication", "")
     nature = anomalie.get("nature_controle", "")
+    nature_label = NATURE_CONTROLE_HUMAIN.get(nature, nature or "Anomalie")
     source = anomalie.get("source_juridique", "")
     correction = anomalie.get("correction_recommandee", "")
     docs_a_verifier = anomalie.get("documents_a_verifier", [])
+    contexte = anomalie.get("contexte", "")
+    fondement = CONTROLE_FONDEMENT.get(nature, "")
 
     lines = [f'<div class="tj-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;">'
-             f'<strong>Anomalie {index} — {_esc(nature)}</strong> {badge}</div>']
+             f'<strong>Anomalie {index} — {_esc(nature_label)}</strong> {badge}</div>']
+    if statut_validation == "modifie":
+        lines.append(
+            f'<div style="margin:0.4rem 0 0 0;padding:0.35rem 0.6rem;background:#EAF6EE;'
+            f'border-left:3px solid #1E7D4E;font-size:0.82rem;color:#1E7D4E;">'
+            f'✏️ Contenu corrigé par le juriste (intégré au rapport)</div>'
+        )
     if explication:
         lines.append(f"<p style='margin:0.5rem 0 0 0;'>{_esc(explication)}</p>")
+    if contexte:
+        lines.append(
+            f'<div style="margin:0.6rem 0 0 0;padding:0.55rem 0.7rem;'
+            f'border-left:3px solid #E7D5B8;background:#FBF7EF;'
+            f'font-size:0.85rem;color:#5D6B82;line-height:1.45;">'
+            f'<b>Dans le document :</b> {_esc(contexte)}</div>'
+        )
     details = []
+    if fondement:
+        details.append(f"<b>Contrôle :</b> {_esc(fondement)}")
     if source:
         details.append(f"<b>Source :</b> {_esc(source)}")
         statut = anomalie.get("source_statut", "")
         labels = {
-            "verifiee": "✅ vérifiée dans Légifrance (PISTE)",
-            "introuvable": "⚠️ introuvable dans Légifrance",
-            "erreur": "⚠️ erreur de vérification (service indisponible)",
-            "non_configure": "ℹ️ vérification non configurée (mode lien)",
-            "fictive": "⚠️ référence fictive à remplacer",
-            "liee": "ℹ️ liée à Légifrance (mode lien)",
+            "verifiee": "✅ texte retrouvé dans Légifrance",
+            "introuvable": "⚠️ texte introuvable dans Légifrance",
+            "erreur": "⚠️ vérification impossible pour le moment",
+            "non_configure": "ℹ️ lien vers Légifrance fourni",
+            "fictive": "⚠️ référence à remplacer",
+            "liee": "ℹ️ liée à Légifrance",
+            "source_non_legale": "ℹ️ source non réglementaire (pas une référence d'article)",
         }
         if statut in labels:
             details.append(f"<b>Vérification :</b> {labels[statut]}")
         texte_officiel = anomalie.get("texte_officiel", "")
+        texte_complet = anomalie.get("texte_officiel_complet", "")
         if statut == "verifiee" and texte_officiel:
-            details.append(f"<b>Texte officiel :</b> «{_esc(texte_officiel)}…»")
+            tronque = bool(texte_complet) and len(texte_complet) > len(texte_officiel)
+            libelle = "Texte officiel (extrait)" if tronque else "Texte officiel (article complet)"
+            details.append(f"<b>{libelle} :</b> «{_esc(texte_officiel)}{'…' if tronque else ''}»")
     if correction:
         details.append(f"<b>Correction recommandée :</b> {_esc(correction)}")
     if docs_a_verifier:
-        details.append(f"<b>Documents :</b> {_esc(', '.join(docs_a_verifier))}")
+        libelles = []
+        for d in docs_a_verifier:
+            type_doc = (docs_by_name or {}).get(d, "")
+            libelles.append(f"{_esc(type_doc)} ({_esc(d)})" if type_doc else _esc(d))
+        pluriel = "Document concerné" if len(libelles) == 1 else "Documents concernés"
+        details.append(f"<b>{pluriel} :</b> {', '.join(libelles)}")
     if details:
         lines.append(f'<p style="margin:0.5rem 0 0 0;color:#5D6B82;font-size:0.88rem;">{"<br>".join(details)}</p>')
     lines.append("</div>")
     st.html("".join(lines))
+
+    statut = anomalie.get("source_statut", "")
+    texte_complet = anomalie.get("texte_officiel_complet", "")
+    texte_officiel = anomalie.get("texte_officiel", "")
+    if statut == "verifiee" and texte_complet and len(texte_complet) > len(texte_officiel or ""):
+        with st.expander("📜 Lire l'article complet (Légifrance)"):
+            st.markdown(texte_complet)
 
 
 def render_incoherence_card(index: int, incoherence: dict[str, Any]):
@@ -280,21 +333,37 @@ def render_incoherence_card(index: int, incoherence: dict[str, Any]):
     if not docs and incoherence.get("document_1") and incoherence.get("document_2"):
         docs = [incoherence["document_1"], incoherence["document_2"]]
 
-    sev_label = {
+    sev_badge = {
         "eleve": ("Élevée", "tj-badge eleve"),
         "moyen": ("Moyenne", "tj-badge moderate"),
+        "modere": ("Modérée", "tj-badge moderate"),
         "faible": ("Faible", "tj-badge faible"),
-    }.get(severite, ("—", "tj-badge non-evalue"))
+        "bloquant": ("Bloquante", "tj-badge eleve"),
+        "important": ("Importante", "tj-badge moderate"),
+        "alerte": ("Alerte", "tj-badge non-evalue"),
+    }
+    sev_label = sev_badge.get(severite, ("—", "tj-badge non-evalue"))
     badge = f'<span class="tj-badge {sev_label[1]}">{sev_label[0]}</span>'
 
-    parts = [f'<div class="tj-card"><strong>Incohérence {index} — {_esc(type_inc)}</strong> {badge}']
+    titre = INCOH_TYPE_HUMAIN.get(type_inc, type_inc or "Incohérence")
+    parts = [f'<div class="tj-card"><strong>Incohérence {index} — {_esc(titre)}</strong> {badge}']
     if description:
         parts.append(f"<p style='margin:0.5rem 0 0 0;'>{_esc(description)}</p>")
     meta = []
+    valeur_pacte = incoherence.get("valeur_pacte", "")
+    valeur_statuts = incoherence.get("valeur_statuts", "")
+    if valeur_pacte or valeur_statuts:
+        meta.append(f"<b>Pacte :</b> {_esc(valeur_pacte)}")
+        meta.append(f"<b>Statuts :</b> {_esc(valeur_statuts)}")
     if champ:
         meta.append(f"<b>Champ :</b> {_esc(champ)}")
     if docs:
-        meta.append(f"<b>Documents :</b> {_esc(' / '.join(docs))}")
+        if len(docs) == 1:
+            meta.append(f"<b>Fichier concerné :</b> {_esc(docs[0])}")
+        elif len(docs) >= 2:
+            meta.append(
+                f"<b>Fichiers concernés :</b> {_esc(' / '.join(docs))}"
+            )
     if meta:
         parts.append(f'<p style="margin:0.5rem 0 0 0;color:#5D6B82;font-size:0.88rem;">{"<br>".join(meta)}</p>')
     parts.append("</div>")

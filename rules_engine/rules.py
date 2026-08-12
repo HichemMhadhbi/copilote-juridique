@@ -279,32 +279,60 @@ def check_conflict_pacte_statuts(
     data_pacte: Dict[str, Any],
     data_statuts: Dict[str, Any],
 ) -> List[_Finding]:
-    """Règle n°6 — Détecte les contradictions entre pacte d'associés et statuts."""
+    """Règle n°6 — Détecte les contradictions entre pacte d'associés et statuts.
+
+    Compare le contenu réel des clauses traitant d'un même sujet (agrément,
+    cession, majorité), et non leurs seuls titres : deux documents peuvent
+    intituler différemment une clause identique sans être contradictoires.
+
+    Lorsque le pacte organise lui-même la hiérarchie des textes (« en cas de
+    contradiction, les statuts prévalent », pacte extrastatutaire), toute
+    divergence éventuelle est réglée par le pacte : ce n'est pas une
+    contradiction bloquante à signaler.
+    """
     findings: List[_Finding] = []
 
-    def _extraire_valeurs(data: Dict[str, Any], champ: str) -> List[str]:
-        """Extrait les valeurs d'un champ donné dans les clauses."""
-        valeurs = set()
+    def _texte_complet_pacte() -> str:
+        morceaux = [str(data_pacte.get("texte", ""))]
+        morceaux.extend(
+            str(clause.get("contenu", "")) for clause in data_pacte.get("clauses", [])
+        )
+        return _normaliser(" ".join(morceaux))
+
+    texte_pacte = _texte_complet_pacte()
+    if (
+        "prevale" in texte_pacte
+        and "statuts" in texte_pacte
+        and ("contradiction" in texte_pacte or "extrastatutaire" in texte_pacte)
+    ):
+        return findings
+
+    def _clauses_sur(data: Dict[str, Any], champ: str) -> List[str]:
+        """Contenus normalisés des clauses dont le contenu mentionne *champ*."""
+        contenus: set[str] = set()
+        champ_norm = _normaliser(champ)
         for clause in data.get("clauses", []):
             contenu = _normaliser(clause.get("contenu", ""))
-            titre = clause.get("titre", "")
-            if _normaliser(champ) in contenu:
-                valeurs.add(titre)
-        return list(valeurs)
+            if contenu and champ_norm in contenu:
+                contenus.add(contenu)
+        return list(contenus)
 
     for champ in ["agrément", "cession", "majorité"]:
-        valeurs_pacte = _extraire_valeurs(data_pacte, champ)
-        valeurs_statuts = _extraire_valeurs(data_statuts, champ)
-        if valeurs_pacte and valeurs_statuts and valeurs_pacte != valeurs_statuts:
-            findings.append({
-                "type": "contradiction",
-                "priorite": "bloquant",
-                "explication": f"Contradiction détectée sur le sujet '{champ}' entre le pacte et les statuts.",
-                "reference_juridique": "Principes généraux du droit des sociétés",
-                "correction_recommandee": f"Harmoniser les dispositions relatives à {champ} dans les deux documents.",
-                "document_concerne": "les deux",
-                "validation_requise": "juriste",
-            })
+        contenus_pacte = set(_clauses_sur(data_pacte, champ))
+        contenus_statuts = set(_clauses_sur(data_statuts, champ))
+        if not contenus_pacte or not contenus_statuts:
+            continue
+        if contenus_pacte == contenus_statuts:
+            continue
+        findings.append({
+            "type": "contradiction",
+            "priorite": "bloquant",
+            "explication": f"Contradiction détectée sur le sujet '{champ}' entre le pacte et les statuts.",
+            "reference_juridique": "Principes généraux du droit des sociétés",
+            "correction_recommandee": f"Harmoniser les dispositions relatives à {champ} dans les deux documents.",
+            "document_concerne": "les deux",
+            "validation_requise": "juriste",
+        })
     return findings
 
 

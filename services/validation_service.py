@@ -2,22 +2,63 @@
 
 Branche la classe `validation.validator.Validator` sur le rapport courant :
 enregistre chaque anomalie comme "en attente", permet au juriste
-d'approuver / rejeter / modifier. L'état est conservé en mémoire (session),
-il n'est pas persisté sur disque.
+d'approuver / rejeter / modifier. L'état est conservé en mémoire (session)
+et persisté sur disque (`validation_sessions/`) pour survivre au
+rechargement de la page et aux reprises de dossier.
 """
 
 from __future__ import annotations
 
 import datetime
+import json
+from pathlib import Path
 from typing import Any, Optional
 
 from validation.validator import Validator, ValidationState
+
+_VALIDATIONS_DIR = Path(__file__).resolve().parent.parent / "validation_sessions"
 
 _ACTION_TO_STATE = {
     "approuver": ValidationState.APPROUVE,
     "rejeter": ValidationState.REJETE,
     "modifier": ValidationState.MODIFIE,
 }
+
+
+def _state_path(report_id: str) -> Path:
+    return _VALIDATIONS_DIR / f"validation_{report_id}.json"
+
+
+def _load_state(report_id: str) -> dict[str, dict[str, Any]]:
+    path = _state_path(report_id)
+    if not path.exists():
+        return {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_state(report_id: str, state: dict[str, dict[str, Any]]) -> None:
+    try:
+        _VALIDATIONS_DIR.mkdir(parents=True, exist_ok=True)
+        path = _state_path(report_id)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(state, fh, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def reset_saved_state(report_id: str) -> None:
+    """Supprime l'état de validation persisté pour un rapport."""
+    try:
+        path = _state_path(report_id)
+        if path.exists():
+            path.unlink()
+    except Exception:
+        pass
 
 
 def _finding_id(index: int) -> str:
@@ -86,15 +127,55 @@ def apply_action(
     else:
         raise ValueError(f"Action inconnue : {action}")
 
-    return validator.get_all()
+    new_state = validator.get_all()
+    _save_state(report_id, new_state)
+    return new_state
+
+
+def apply_bulk_action(
+    report_id: str,
+    action: str,
+    comment: str = "",
+    current_state: Optional[dict[str, dict[str, Any]]] = None,
+) -> dict[str, dict[str, Any]]:
+    """
+    Applique une action (approuver / rejeter) à toutes les anomalies encore
+    en attente et retourne l'état complet. Permet au juriste de traiter un
+    dossier en un clic, puis d'affiner au cas par cas.
+    """
+    validator = Validator(session_id=report_id)
+    base: dict[str, dict[str, Any]] = {}
+    if current_state:
+        base.update(current_state)
+    if base:
+        validator._validations.update(base)
+
+    if action not in ("approuver", "rejeter"):
+        raise ValueError(f"Action de masse non supportée : {action}")
+
+    for finding_id, val in list(base.items()):
+        if val.get("statut") != ValidationState.EN_ATTENTE:
+            continue
+        if action == "approuver":
+            validator.approve(finding_id, comment or "")
+        else:
+            validator.reject(finding_id, comment or "")
+    new_state = validator.get_all()
+    _save_state(report_id, new_state)
+    return new_state
 
 
 def merge_with_saved(report_id: str, current: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """
-    Retourne l'état de validation courant (la validation n'est pas persistée
-    sur disque : l'état reste en mémoire pour la session en cours).
+    Fusionne l'état courant (re-findings "en attente") avec l'état persisté
+    sur disque : les validations déjà faites sont conservées, les nouveaux
+    findings sont ajoutés en "en attente".
     """
-    return current
+    merged = _load_state(report_id)
+    for fid, val in (current or {}).items():
+        merged.setdefault(fid, val)
+    _save_state(report_id, merged)
+    return merged
 
 
 def summary(report_id: str, state: dict[str, dict[str, Any]]) -> dict[str, Any]:

@@ -1,0 +1,23 @@
+{
+  "anomalie_1": {
+    "finding_id": "anomalie_1",
+    "statut": "approuve",
+    "date_validation": "2026-08-12T12:53:32.031875",
+    "commentaire_juriste": "OK",
+    "action": "approuve"
+  },
+  "anomalie_2": {
+    "finding_id": "anomalie_2",
+    "statut": "approuve",
+    "date_validation": "2026-08-12T12:53:32.032872",
+    "commentaire_juriste": "reste",
+    "action": "approuve"
+  },
+  "anomalie_3": {
+    "finding_id": "anomalie_3",
+    "statut": "approuve",
+    "date_validation": "2026-08-12T12:53:32.032872",
+    "commentaire_juriste": "reste",
+    "action": "approuve"
+  }
+}

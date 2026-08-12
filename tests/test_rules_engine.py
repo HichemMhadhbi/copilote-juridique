@@ -123,6 +123,47 @@ class TestCheckConflictPacteStatuts:
         assert len(contradictions) > 0
         assert contradictions[0]["priorite"] == "bloquant"
 
+    def test_hierarchie_statuts_prevale_pas_de_contradiction(self) -> None:
+        """Un pacte prévoyant la primauté des statuts ne crée pas de contradiction.
+
+        Le pacte du dossier contient un article de hiérarchie (« en cas de
+        contradiction, les statuts prévalent ») : les divergences de rédaction
+        sont alors réglées par le pacte lui-même et ne doivent pas être
+        remontées comme anomalies bloquantes.
+        """
+        data_pacte = _make_data(clauses=[
+            "Clause de cession — cession libre entre les associés",
+            "Article 2 — Hiérarchie avec les statuts : En cas de contradiction, "
+            "les statuts et les règles impératives applicables à la Société prévalent.",
+        ])
+        data_statuts = _make_data(
+            clauses=["Clause de cession — toute cession est soumise à l'agrément du gérant"],
+            type_doc="statuts",
+        )
+        result = check_conflict_pacte_statuts(data_pacte, data_statuts)
+        contradictions = [f for f in result if f["type"] == "contradiction"]
+        assert len(contradictions) == 0, "La hiérarchie pacte/statuts doit écarter les faux positifs."
+
+    def test_meme_contenu_pas_de_contradiction(self) -> None:
+        """Des contenus identiques sous des titres différents ne sont pas un conflit."""
+        data_pacte = {
+            "type_document": "pacte_associes",
+            "clauses": [
+                {"titre": "Article 5 — Agrément",
+                 "contenu": "Toute cession est soumise à l'agrément du gérant", "position": 0},
+            ],
+        }
+        data_statuts = {
+            "type_document": "statuts",
+            "clauses": [
+                {"titre": "Cession de parts",
+                 "contenu": "Toute cession est soumise à l'agrément du gérant", "position": 0},
+            ],
+        }
+        result = check_conflict_pacte_statuts(data_pacte, data_statuts)
+        contradictions = [f for f in result if f["type"] == "contradiction"]
+        assert len(contradictions) == 0, "Le contenu est identique : aucune contradiction attendue."
+
 
 class TestRuleCheckerFullRun:
     """Teste l'exécution complète du moteur de règles."""

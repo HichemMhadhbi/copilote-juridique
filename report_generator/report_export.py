@@ -8,7 +8,97 @@ au format Markdown et PDF (via reportlab).
 from __future__ import annotations
 
 import io
+import re
 from typing import Any
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Libellés métier partagés (affichage humain au lieu des codes techniques)
+# ══════════════════════════════════════════════════════════════════════════════
+
+TYPE_LABELS_HUMAIN = {
+    "pacte d'associes": "Pacte d'associés",
+    "statuts de societe": "Statuts de société",
+    "proces-verbal d'assemblee": "Procès-verbal d'assemblée",
+    "modification statutaire": "Modification statutaire",
+    "non_classe": "Document non reconnu",
+}
+
+INCOH_TYPE_HUMAIN = {
+    "montant": "Incohérence de montant",
+    "date": "Incohérence de date",
+    "partie": "Incohérence de parties",
+    "clause": "Incohérence de clause",
+    "mise_a_jour_24_mois": "Mise à jour des statuts",
+    "duree_societe": "Durée de la société",
+    "titres_capital": "Répartition du capital",
+    "objet_social": "Objet social",
+}
+
+SEVERITE_HUMAIN = {
+    "eleve": "sévérité élevée",
+    "moyen": "sévérité moyenne",
+    "faible": "sévérité faible",
+    "bloquant": "bloquant",
+    "important": "important",
+    "alerte": "alerte",
+}
+
+NATURE_CONTROLE_HUMAIN = {
+    "clause_manquante": "Clause manquante",
+    "clause_incomplete": "Clause incomplète",
+    "conformité": "Conformité",
+    "proportionnalité": "Proportionnalité",
+    "contradiction": "Contradiction",
+    "vérification": "Vérification",
+    "incohérence": "Incohérence",
+    "risque_futur": "Risque contractuel à prévenir",
+}
+
+STATUT_LECTURE_HUMAIN = {
+    "natif": "Texte lisible",
+    "ocr": "Scan numérisé (texte reconstitué)",
+    "ocr_indisponible": "Scan sans texte (à vérifier)",
+    "erreur": "Erreur de lecture",
+}
+
+CONTROLE_FONDEMENT = {
+    "clause_manquante": "Présence d'une clause obligatoire ou recommandée",
+    "clause_incomplete": "Complétude de la clause (champs à renseigner)",
+    "conformité": "Conformité aux règles du droit des sociétés",
+    "proportionnalité": "Proportionnalité de la clause",
+    "contradiction": "Cohérence entre les documents du dossier",
+    "incohérence": "Terminologie conforme à la forme sociale",
+    "vérification": "Mention obligatoire / formalité",
+    "risque_futur": "Risque contractuel à prévenir",
+}
+
+
+def points_cles_document(doc_entites: dict[str, Any]) -> list[tuple[str, list[str]]]:
+    """Résume les entités extraites d'un document en points clés métier."""
+    formes_societe = re.compile(r"\b(?:SARL|SASU?|SA|SCI|EURL|SNC|SCA|SCS)\b")
+
+    def _dedupe(valeurs: list[str]) -> list[str]:
+        return list(dict.fromkeys(v for v in valeurs if v))
+
+    organisations = [p.get("nom", "") for p in doc_entites.get("parties", [])]
+    personnes = [
+        f"{p.get('civilite', '').strip()} {p.get('nom', '')}".strip()
+        for p in doc_entites.get("personnes", [])
+    ]
+    societes = [n for n in organisations if formes_societe.search(n.upper())]
+    autres_orgs = [n for n in organisations if not formes_societe.search(n.upper())]
+    parties = personnes + autres_orgs
+    montants = [m.get("valeur", "") for m in doc_entites.get("montants", [])]
+    dates = [d.get("valeur", "") for d in doc_entites.get("dates", [])]
+    articles = [a.get("reference", "") for a in doc_entites.get("articles", [])]
+    return [
+        ("Société", _dedupe(societes)[:2]),
+        ("Associés et parties", _dedupe(parties)[:8]),
+        ("Montants", [f"{v} €" for v in _dedupe(montants)][:6]),
+        ("Dates", _dedupe(dates)[:6]),
+        ("Articles cités", _dedupe(articles)[:8]),
+    ]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -40,9 +130,9 @@ def export_to_markdown(report_dict: dict[str, Any]) -> str:
         for doc in docs:
             if isinstance(doc, dict):
                 nom = doc.get("nom", "Inconnu")
-                type_doc = doc.get("type", "Non spécifié")
-                statut = doc.get("statut", "analyse")
-                lignes.append(f"- **{nom}** — Type: {type_doc} — Statut: {statut}")
+                type_doc = doc.get("type", "")
+                type_label = TYPE_LABELS_HUMAIN.get(type_doc, type_doc or "Non reconnu")
+                lignes.append(f"- **{nom}** — {type_label}")
             else:
                 lignes.append(f"- **{doc}**")
         lignes.append("")
@@ -79,10 +169,20 @@ def export_to_markdown(report_dict: dict[str, Any]) -> str:
     if incoherences:
         lignes.append("## 3. Incohérences Détectées\n")
         for i, inc in enumerate(incoherences, 1):
-            lignes.append(f"### Incohérence {i}\n")
+            type_label = INCOH_TYPE_HUMAIN.get(inc.get("type", ""), inc.get("type", "") or "Incohérence")
+            lignes.append(f"### Incohérence {i} — {type_label}\n")
             lignes.append(f"- **Description :** {inc.get('description', 'N/A')}")
-            lignes.append(f"- **Document 1 :** {inc.get('document_1', 'N/A')}")
-            lignes.append(f"- **Document 2 :** {inc.get('document_2', 'N/A')}")
+            if inc.get("valeur_pacte") or inc.get("valeur_statuts"):
+                lignes.append(f"- **Pacte :** {inc.get('valeur_pacte', 'N/A')}")
+                lignes.append(f"- **Statuts :** {inc.get('valeur_statuts', 'N/A')}")
+            fichiers = inc.get("documents") or []
+            if len(fichiers) == 1:
+                lignes.append(f"- **Fichier concerné :** {fichiers[0]}")
+            elif len(fichiers) >= 2:
+                lignes.append(f"- **Fichiers concernés :** {fichiers[0]} et {fichiers[1]}")
+            else:
+                lignes.append(f"- **Document 1 :** {inc.get('document_1', 'N/A')}")
+                lignes.append(f"- **Document 2 :** {inc.get('document_2', 'N/A')}")
             lignes.append(f"- **Champ concerné :** {inc.get('champ', 'N/A')}")
             lignes.append("")
 
@@ -95,20 +195,24 @@ def export_to_markdown(report_dict: dict[str, Any]) -> str:
             emoji_priorite = {"bloquant": "🔴", "important": "🟠", "alerte": "🟡"}.get(
                 priorite, "⚪"
             )
+            nature_label = NATURE_CONTROLE_HUMAIN.get(
+                anom.get("nature_controle", ""), anom.get("nature_controle", "Anomalie")
+            )
             lignes.append(f"### Anomalie {i} {emoji_priorite} [{priorite.upper()}]\n")
             lignes.append(f"**Explication :** {anom.get('explication', 'N/A')}\n")
-            lignes.append(f"- **Nature du contrôle :** {anom.get('nature_controle', 'N/A')}")
+            lignes.append(f"- **Nature du contrôle :** {nature_label}")
             lignes.append(f"- **Conséquence :** {anom.get('consequence', 'N/A')}")
             lignes.append(f"- **Source juridique :** {anom.get('source_juridique', 'N/A')}")
 
             statut = anom.get("source_statut", "")
             labels = {
-                "verifiee": "Vérifiée dans Légifrance (PISTE)",
-                "introuvable": "Introuvable dans Légifrance",
-                "erreur": "Erreur de vérification (service indisponible)",
-                "non_configure": "Vérification non configurée (mode lien)",
-                "fictive": "Référence fictive à remplacer",
-                "liee": "Liée à Légifrance (mode lien)",
+                "verifiee": "Texte retrouvé dans Légifrance",
+                "introuvable": "Texte introuvable dans Légifrance",
+                "erreur": "Vérification impossible pour le moment",
+                "non_configure": "Lien vers Légifrance fourni",
+                "fictive": "Référence à remplacer",
+                "liee": "Liée à Légifrance",
+                "source_non_legale": "Source non réglementaire (pas une référence d'article)",
             }
             if statut in labels:
                 lignes.append(f"- **Vérification source :** {labels[statut]}")
@@ -116,8 +220,17 @@ def export_to_markdown(report_dict: dict[str, Any]) -> str:
             if url and statut in ("verifiee", "liee"):
                 lignes.append(f"- **Lien Légifrance :** [Voir le texte sur Légifrance]({url})")
             texte_officiel = anom.get("texte_officiel", "")
+            texte_complet = anom.get("texte_officiel_complet", "")
             if statut == "verifiee" and texte_officiel:
-                lignes.append(f"- **Extrait texte officiel :** {texte_officiel}…")
+                tronque = bool(texte_complet) and len(texte_complet) > len(texte_officiel)
+                libelle = "Extrait texte officiel" if tronque else "Texte officiel (article complet)"
+                lignes.append(f"- **{libelle} :** {texte_officiel}{'…' if tronque else ''}")
+            texte_complet = anom.get("texte_officiel_complet", "")
+            if statut == "verifiee" and texte_complet and len(texte_complet) > len(texte_officiel or ""):
+                lignes.append(f"- **Texte officiel complet :** {texte_complet}")
+            contexte = anom.get("contexte", "")
+            if contexte:
+                lignes.append(f"- **Contexte dans le document :** {contexte}")
             lignes.append(f"- **Correction recommandée :** {anom.get('correction_recommandee', 'N/A')}")
 
             docs_verif = anom.get("documents_a_verifier", [])
@@ -338,17 +451,20 @@ def export_to_pdf(report_dict: dict[str, Any]) -> bytes:
             )
 
             detail_data = [
-                ["Nature du contrôle", anom.get("nature_controle", "N/A")],
+                ["Nature du contrôle", NATURE_CONTROLE_HUMAIN.get(
+                    anom.get("nature_controle", ""), anom.get("nature_controle", "Anomalie")
+                )],
                 ["Conséquence", anom.get("consequence", "N/A")],
                 ["Source juridique", anom.get("source_juridique", "N/A")],
             ]
             statut_labels = {
-                "verifiee": "Vérifiée dans Légifrance (PISTE)",
-                "introuvable": "Introuvable dans Légifrance",
-                "erreur": "Erreur de vérification (service indisponible)",
-                "non_configure": "Vérification non configurée (mode lien)",
-                "fictive": "Référence fictive à remplacer",
-                "liee": "Liée à Légifrance (mode lien)",
+                "verifiee": "Texte retrouvé dans Légifrance",
+                "introuvable": "Texte introuvable dans Légifrance",
+                "erreur": "Vérification impossible pour le moment",
+                "non_configure": "Lien vers Légifrance fourni",
+                "fictive": "Référence à remplacer",
+                "liee": "Liée à Légifrance",
+                "source_non_legale": "Source non réglementaire (pas une référence d'article)",
             }
             statut = anom.get("source_statut", "")
             if statut in statut_labels:

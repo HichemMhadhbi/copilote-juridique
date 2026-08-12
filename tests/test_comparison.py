@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from comparison.document_comparator import DocumentComparator
 
 
-def _make_extraction(dates=None, montants=None, parties=None, personnes=None, clauses=None):
+def _make_extraction(dates=None, montants=None, parties=None, personnes=None, clauses=None, placeholders=None):
     """Helper pour créer une extraction structurée."""
     return {
         "entites": {
@@ -24,6 +24,7 @@ def _make_extraction(dates=None, montants=None, parties=None, personnes=None, cl
             "parties": [{"nom": p, "type": "societe", "position": 0} for p in (parties or [])],
             "personnes": [{"civilite": "M.", "nom": p, "position": 0} for p in (personnes or [])],
             "articles": [],
+            "placeholders": [{"valeur": p, "position": 0} for p in (placeholders or [])],
         },
         "clauses": [{"titre": c, "contenu": "", "position": 0} for c in (clauses or [])],
     }
@@ -153,6 +154,57 @@ class TestNormalisationParties:
         result = comp.compare_all()
         partie_incoherences = [inc for inc in result if inc["type"] == "partie"]
         assert len(partie_incoherences) > 0
+
+
+class TestPlaceholderDateDetected:
+    """Teste la détection d'un champ date non renseigné ([date]) en comparaison."""
+
+    def test_placeholder_au_lieu_de_date_absente(self) -> None:
+        """Un '[date]' dans les statuts est signalé comme champ non renseigné."""
+        ext1 = _make_extraction(dates=["01/01/2025"])
+        ext2 = _make_extraction(dates=[], placeholders=["[date]"])
+        comp = DocumentComparator(ext1, ext2)
+        result = comp.compare_all()
+        date_incoherences = [inc for inc in result if inc["type"] == "date"]
+        assert len(date_incoherences) == 1
+        assert "non renseigné" in date_incoherences[0]["description"]
+        assert date_incoherences[0]["severite"] == "alerte"
+
+    def test_sans_placeholder_message_original(self) -> None:
+        """Sans placeholder, le message original est conservé."""
+        ext1 = _make_extraction(dates=["01/01/2025"])
+        ext2 = _make_extraction(dates=[])
+        comp = DocumentComparator(ext1, ext2)
+        result = comp.compare_all()
+        date_incoherences = [inc for inc in result if inc["type"] == "date"]
+        assert "absente(s) des statuts" in date_incoherences[0]["description"]
+        assert "non renseigné" not in date_incoherences[0]["description"]
+
+
+class TestVariantesOrthographiques:
+    """Teste le rapprochement des variantes orthographiques de noms."""
+
+    def test_hichem_hicham_rapproches(self) -> None:
+        """'HICHEM' et 'HICHAM' sont rapprochés en une alerte, pas deux absences."""
+        ext1 = _make_extraction(personnes=["HICHEM"])
+        ext2 = _make_extraction(personnes=["HICHAM"])
+        comp = DocumentComparator(ext1, ext2)
+        result = comp.compare_all()
+        partie_incoherences = [inc for inc in result if inc["type"] == "partie"]
+        assert len(partie_incoherences) == 1
+        assert partie_incoherences[0]["severite"] == "alerte"
+        assert "variante orthographique" in partie_incoherences[0]["description"]
+
+    def test_noms_vraiment_differents_inchanges(self) -> None:
+        """Des noms très différents restent deux absences 'important'."""
+        ext1 = _make_extraction(personnes=["MOHAMED"])
+        ext2 = _make_extraction(personnes=["MARTIN"])
+        comp = DocumentComparator(ext1, ext2)
+        result = comp.compare_all()
+        partie_incoherences = [inc for inc in result if inc["type"] == "partie"]
+        severites = [inc["severite"] for inc in partie_incoherences]
+        assert severites == ["important", "important"]
+        assert all("variante" not in inc["description"] for inc in partie_incoherences)
 
 
 class TestMontantsSubset:

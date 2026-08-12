@@ -8,6 +8,7 @@ références d'articles et autres entités pertinentes pour l'analyse.
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any, Dict, List
 
 # ── Patterns de reconnaissance ────────────────────────────────────────────
@@ -117,6 +118,23 @@ _PATTERN_ARTICLE_REF = re.compile(
 )
 
 
+def _cle_partie(nom: str) -> str:
+    """Clé de déduplication d'un nom de partie (anti-bruit OCR).
+
+    Les scanners insèrent parfois un espace ou un trait au milieu d'un nom
+    (« ZAFFAT TI », « ZA FFATI ») : la clé ignore les séparateurs pour
+    rapprocher ces variantes de la forme propre (« ZAFFATTI », « ZAFFATI »).
+    Seules les variantes de *fragmentation* sont rapprochées (exactes après
+    normalisation) — deux noms réellement différents restent distincts.
+    """
+    n = unicodedata.normalize("NFKD", nom or "").encode("ascii", "ignore").decode("utf-8")
+    return re.sub(r"[^A-Za-z0-9]", "", n.upper())
+
+_PATTERN_PLACEHOLDER = re.compile(
+    r"\[([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9 _\-\.]{0,40})\]"
+)
+
+
 class EntityExtractor:
     """
     Extrait les entités nommées d'un texte juridique brut.
@@ -148,6 +166,7 @@ class EntityExtractor:
             "parties": self._extract_parties(),
             "personnes": self._extract_personnes(),
             "articles": self._extract_articles(),
+            "placeholders": self._extract_placeholders(),
         }
 
     def _extract_dates(self) -> List[Dict[str, Any]]:
@@ -192,8 +211,12 @@ class EntityExtractor:
 
         Les candidats qui ne contiennent aucun mot significatif (formes
         juridiques, mots-outils, en-têtes, placeholders de modèles, communes)
-        sont ignorés : « PROJET DE PACTE », « [SEUIL] » ou « PARIS » ne sont
-        pas des parties.
+        sont ignorés : « PROJET DE PACTE », « [SEUIL] » ou « PARIS » ne
+        sont pas des parties.
+
+        Les variantes de fragmentation OCR d'un même nom (ex. « ZA FFATI » et
+        « ZAFFATI ») sont dédoublonnées : seule la première occurrence propre
+        est conservée.
         """
         result: List[Dict[str, Any]] = []
         vus: set[str] = set()
@@ -205,13 +228,17 @@ class EntityExtractor:
             mots = re.findall(r"[A-Z0-9]+", nom.upper())
             if not any(mot not in _MOTS_PARTIE_NON_INFORMATIFS for mot in mots):
                 continue
-            if len(nom) > 3 and nom not in vus:
-                vus.add(nom)
-                result.append({
-                    "nom": nom,
-                    "type": "societe",
-                    "position": m.start(),
-                })
+            if len(nom) <= 3:
+                continue
+            cle = _cle_partie(nom)
+            if cle in vus:
+                continue
+            vus.add(cle)
+            result.append({
+                "nom": nom,
+                "type": "societe",
+                "position": m.start(),
+            })
         return result
 
     def _extract_personnes(self) -> List[Dict[str, Any]]:
@@ -227,6 +254,21 @@ class EntityExtractor:
                     "nom": m.group(2),
                     "position": m.start(),
                 })
+        return result
+
+    def _extract_placeholders(self) -> List[Dict[str, Any]]:
+        """Extrait les placeholders de modèles non renseignés ([date], [SEUIL]...).
+
+        Permet de signaler un champ de modèle resté vide au lieu d'une
+        simple « valeur absente » lors de la comparaison entre documents.
+        """
+        result: List[Dict[str, Any]] = []
+        vus: set[str] = set()
+        for m in _PATTERN_PLACEHOLDER.finditer(self._raw_text):
+            valeur = f"[{m.group(1)}]"
+            if valeur.lower() not in vus:
+                vus.add(valeur.lower())
+                result.append({"valeur": valeur, "position": m.start()})
         return result
 
     def _extract_articles(self) -> List[Dict[str, Any]]:

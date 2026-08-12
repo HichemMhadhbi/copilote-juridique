@@ -1,0 +1,44 @@
+{
+  "anomalie_1": {
+    "finding_id": "anomalie_1",
+    "statut": "en_attente",
+    "date_enregistrement": "2026-08-12T11:59:07.770446",
+    "action": "en_attente"
+  },
+  "anomalie_2": {
+    "finding_id": "anomalie_2",
+    "statut": "en_attente",
+    "date_enregistrement": "2026-08-12T11:59:07.770446",
+    "action": "en_attente"
+  },
+  "anomalie_3": {
+    "finding_id": "anomalie_3",
+    "statut": "en_attente",
+    "date_enregistrement": "2026-08-12T11:59:07.770446",
+    "action": "en_attente"
+  },
+  "anomalie_4": {
+    "finding_id": "anomalie_4",
+    "statut": "en_attente",
+    "date_enregistrement": "2026-08-12T11:59:07.770446",
+    "action": "en_attente"
+  },
+  "anomalie_5": {
+    "finding_id": "anomalie_5",
+    "statut": "en_attente",
+    "date_enregistrement": "2026-08-12T11:59:07.770446",
+    "action": "en_attente"
+  },
+  "anomalie_6": {
+    "finding_id": "anomalie_6",
+    "statut": "en_attente",
+    "date_enregistrement": "2026-08-12T11:59:07.770446",
+    "action": "en_attente"
+  },
+  "anomalie_7": {
+    "finding_id": "anomalie_7",
+    "statut": "en_attente",
+    "date_enregistrement": "2026-08-12T11:59:07.770446",
+    "action": "en_attente"
+  }
+}

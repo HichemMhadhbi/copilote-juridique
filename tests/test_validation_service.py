@@ -84,3 +84,61 @@ class TestValidationService:
         resume = validation_service.summary("rid", {})
         assert resume["total"] == 0
         assert resume["taux_validation"] == 0.0
+
+    def test_bulk_approuver_tout(self) -> None:
+        etat = validation_service.register_report_findings(_sample_report(3))
+        nouvel_etat = validation_service.apply_bulk_action(
+            "rid", "approuver", comment="Validé par le cabinet", current_state=etat
+        )
+        assert all(v["statut"] == "approuve" for v in nouvel_etat.values())
+        assert nouvel_etat["anomalie_2"]["commentaire_juriste"] == "Validé par le cabinet"
+
+    def test_bulk_rejeter_tout(self) -> None:
+        etat = validation_service.register_report_findings(_sample_report(2))
+        nouvel_etat = validation_service.apply_bulk_action(
+            "rid", "rejeter", comment="hors périmètre", current_state=etat
+        )
+        assert all(v["statut"] == "rejete" for v in nouvel_etat.values())
+
+    def test_bulk_ne_touche_pas_les_validees(self) -> None:
+        etat = validation_service.register_report_findings(_sample_report(3))
+        etat = validation_service.apply_action(
+            "rid", "anomalie_1", "approuver", comment="OK", current_state=etat
+        )
+        nouvel_etat = validation_service.apply_bulk_action(
+            "rid", "approuver", comment="reste", current_state=etat
+        )
+        assert nouvel_etat["anomalie_1"]["statut"] == "approuve"
+        assert nouvel_etat["anomalie_1"]["commentaire_juriste"] == "OK"
+        assert nouvel_etat["anomalie_2"]["statut"] == "approuve"
+        assert nouvel_etat["anomalie_2"]["commentaire_juriste"] == "reste"
+
+    def test_bulk_action_inconnue(self) -> None:
+        etat = validation_service.register_report_findings(_sample_report(2))
+        with pytest.raises(ValueError):
+            validation_service.apply_bulk_action("rid", "modifier", current_state=etat)
+
+    def test_merge_charge_les_validations_persistees(self) -> None:
+        rid = "rid-test-persist"
+        validation_service.reset_saved_state(rid)
+        etat = validation_service.register_report_findings(_sample_report(2))
+        validation_service.apply_action(
+            rid, "anomalie_1", "approuver", comment="OK", current_state=etat
+        )
+        # simule un rechargement : on repart de findings "en attente"
+        refait = validation_service.register_report_findings(_sample_report(2))
+        fusion = validation_service.merge_with_saved(rid, refait)
+        assert fusion["anomalie_1"]["statut"] == "approuve"
+        assert fusion["anomalie_1"]["commentaire_juriste"] == "OK"
+        assert fusion["anomalie_2"]["statut"] == "en_attente"
+        validation_service.reset_saved_state(rid)
+
+    def test_reset_saved_state_efface(self) -> None:
+        rid = "rid-test-reset"
+        validation_service.reset_saved_state(rid)
+        etat = validation_service.register_report_findings(_sample_report(1))
+        validation_service.apply_action(
+            rid, "anomalie_1", "approuver", comment="OK", current_state=etat
+        )
+        validation_service.reset_saved_state(rid)
+        assert validation_service.merge_with_saved(rid, {}) == {}

@@ -280,6 +280,32 @@ def _score_societe(text: str) -> int:
     return score
 
 
+_STATUTS_STRUCTURE_MARQUES = (
+    "forme juridique", "forme de la société", "forme de la societe",
+    "dénomination sociale", "denomination sociale",
+    "objet social", "siège social", "siege social",
+    "durée de la société", "duree de la societe",
+    "capital social", "parts sociales",
+    "cession de parts", "gérance", "gerance",
+    "affectation des résultats", "affectation des resultats",
+    "dissolution", "liquidation",
+)
+
+
+def _score_statuts_complets(text: str) -> int:
+    """Score de complétude d'un document de statuts (piliers de la structure).
+
+    Compte le nombre de marqueurs *distincts* de la structure type d'un
+    document de statuts (forme, objet, siège, durée, capital, parts, gérance,
+    dissolution...). Un document qui les contient presque tous est un
+    document « statuts » complet — y compris si son en-tête mentionne une
+    mise à jour (ex. « MAJ STATUTS ») — et non une simple modification
+    statutaire.
+    """
+    low = text.lower()
+    return sum(1 for marque in _STATUTS_STRUCTURE_MARQUES if marque in low)
+
+
 def detect_document_type(text: str) -> str:
     """
     Detecte le type de document juridique.
@@ -294,6 +320,16 @@ def detect_document_type(text: str) -> str:
     low = text.lower()
     if not text or not text.strip():
         return "autre"
+
+    # 0) Statuts complets : un document qui contient la quasi-totalité de la
+    # structure des statuts (forme, objet, siège, durée, capital, parts,
+    # gérance, dissolution...) est un document « statuts », même si son
+    # en-tête mentionne une mise à jour / modification (ex. « MAJ STATUTS
+    # EN DATE DU »). Sans ce garde-fou, les statuts à jour étaient classés
+    # « modification_statutaire » : les règles de contrôle des statuts
+    # n'étaient alors jamais appliquées.
+    if _score_statuts_complets(low) >= 8:
+        return "statuts"
 
     # 1) Signaux forts de modification statutaire (plus specifique qu'un PV)
     modification_marks = (

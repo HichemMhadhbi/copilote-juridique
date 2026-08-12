@@ -4,6 +4,9 @@
 
 > Développer un prototype de copilote IA capable d'analyser les documents d'un dossier juridique, d'extraire les informations clés, de détecter les incohérences et de générer un rapport de contrôle pour le juriste.
 
+> **Présentation à destination de l'encadrante** (utilité pour le formaliste, démarche, architecture, script de démo) :
+> `livrables_stage/presentation_encadrante.md` (+ version PDF `presentation_encadrante.pdf`)
+
 ---
 
 ## Table des matières
@@ -348,6 +351,7 @@ Voir `docs/02_benchmark.md` pour l'analyse de 18 solutions existantes (10 France
 | `docs/05_base_juridique.md` | Documentation de la base juridique |
 | `docs/06_integration.md` | Guide d'intégration TOP-JURIDIQUE |
 | `examples/rapport_exemple.md` | Exemple de rapport de contrôle |
+| `livrables_stage/presentation_encadrante.md` | Présentation métier pour l'encadrante (utilité pour le formaliste) + script de démo |
 | `main.py` | Point d'entrée CLI |
 | `config.py` | Configuration globale |
 | `requirements.txt` | Dépendances |

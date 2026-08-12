@@ -41,14 +41,25 @@ class RuleChecker:
     Exécute l'ensemble des règles de contrôle et agrège les résultats.
     """
 
-    def __init__(self, pacte_data: Dict[str, Any], statuts_data: Dict[str, Any]) -> None:
+    def __init__(
+        self,
+        pacte_data: Dict[str, Any],
+        statuts_data: Dict[str, Any],
+        comparer_documents: bool = True,
+    ) -> None:
         """
         Args:
             pacte_data: Données extraites du pacte d'associés.
             statuts_data: Données extraites des statuts.
+            comparer_documents: False si le pacte et les statuts concernent des
+                sociétés différentes : les règles comparatives (conflits pacte
+                vs statuts, couverture des lacunes du pacte par les statuts)
+                sont alors désactivées pour éviter de faux positifs. Les règles
+                propres à chaque document restent appliquées.
         """
         self._pacte = pacte_data
         self._statuts = statuts_data
+        self._comparer = comparer_documents
 
     @staticmethod
     def _est_vide(data: Dict[str, Any]) -> bool:
@@ -90,8 +101,13 @@ class RuleChecker:
             # Un manque côté pacte n'est pas remonté comme anomalie lorsque les
             # statuts du dossier comblent le besoin (analyse pacte + statuts) :
             # agrément et résolution de blocage peuvent être prévus aux statuts.
-            statuts_ont_agrement = statuts_present and a_mecanisme_agrement(self._statuts)
-            statuts_ont_blocage = statuts_present and a_mecanisme_blocage(self._statuts)
+            # La couverture par les statuts ne vaut que pour la même société.
+            statuts_ont_agrement = (
+                statuts_present and self._comparer and a_mecanisme_agrement(self._statuts)
+            )
+            statuts_ont_blocage = (
+                statuts_present and self._comparer and a_mecanisme_blocage(self._statuts)
+            )
 
             for f in check_clause_agrement(self._pacte):
                 if not (
@@ -122,8 +138,9 @@ class RuleChecker:
                 ):
                     findings.append(f)
 
-        # Règles comparatives (uniquement si les deux documents sont présents)
-        if statuts_present and pacte_present:
+        # Règles comparatives (uniquement si les deux documents sont présents
+        # et concernent la même société)
+        if statuts_present and pacte_present and self._comparer:
             findings.extend(check_conflict_pacte_statuts(self._pacte, self._statuts))
 
         return self._deduplicate(findings)

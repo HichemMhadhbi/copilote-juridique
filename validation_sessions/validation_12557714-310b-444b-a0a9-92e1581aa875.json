@@ -1,0 +1,43 @@
+{
+  "anomalie_1": {
+    "finding_id": "anomalie_1",
+    "statut": "modifie",
+    "date_validation": "2026-08-11T22:52:26.086675",
+    "nouveau_contenu": {
+      "explication": "Aucune clause de sortie (drag-along / tag-along) identifiée.aaa",
+      "correction_recommandee": "Envisager l'ajout d'une clause de sortie conjointe pour protéger les associés minoritaires.aaa",
+      "commentaire_juriste": ""
+    },
+    "action": "modifie"
+  },
+  "anomalie_2": {
+    "finding_id": "anomalie_2",
+    "statut": "en_attente",
+    "date_enregistrement": "2026-08-11T22:49:27.385030",
+    "action": "en_attente"
+  },
+  "anomalie_3": {
+    "finding_id": "anomalie_3",
+    "statut": "en_attente",
+    "date_enregistrement": "2026-08-11T22:49:27.385030",
+    "action": "en_attente"
+  },
+  "anomalie_4": {
+    "finding_id": "anomalie_4",
+    "statut": "en_attente",
+    "date_enregistrement": "2026-08-11T22:49:27.385030",
+    "action": "en_attente"
+  },
+  "anomalie_5": {
+    "finding_id": "anomalie_5",
+    "statut": "en_attente",
+    "date_enregistrement": "2026-08-11T22:49:27.385030",
+    "action": "en_attente"
+  },
+  "anomalie_6": {
+    "finding_id": "anomalie_6",
+    "statut": "en_attente",
+    "date_enregistrement": "2026-08-11T22:49:27.385030",
+    "action": "en_attente"
+  }
+}
