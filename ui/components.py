@@ -58,7 +58,7 @@ def render_hero_header():
 
 def render_sidebar_header():
     logo_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "ImagesUtilisé", "Top-juridique-logo.png")
+        os.path.join(os.path.dirname(__file__), "..", "assets", "Top-juridique-logo.png")
     )
     if os.path.exists(logo_path):
         st.sidebar.image(logo_path, width=170)
