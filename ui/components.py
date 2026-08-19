@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import base64
 import html
 import os
-from pathlib import Path
 from typing import Any
 
 import streamlit as st
@@ -139,7 +137,7 @@ def render_metric_cards(report: dict[str, Any]):
         st.html(
             f"""
             <div class="tj-kpi">
-                <div class="kpi-label">Niveau de risque</div>
+                <div class="tj-kpi-head"><div class="kpi-label">Niveau de risque</div><span class="tj-kpi-icon">⚠</span></div>
                 <div class="kpi-value" style="font-size:1.15rem;padding-top:0.25rem;">{risque_html}</div>
                 <div class="kpi-sub">Évaluation globale</div>
             </div>
@@ -149,7 +147,7 @@ def render_metric_cards(report: dict[str, Any]):
         st.html(
             f"""
             <div class="tj-kpi">
-                <div class="kpi-label">Anomalies</div>
+                <div class="tj-kpi-head"><div class="kpi-label">Anomalies</div><span class="tj-kpi-icon">!</span></div>
                 <div class="kpi-value">{len(anomalies)}</div>
                 <div class="kpi-sub">À corriger dans les documents</div>
             </div>
@@ -159,7 +157,7 @@ def render_metric_cards(report: dict[str, Any]):
         st.html(
             f"""
             <div class="tj-kpi">
-                <div class="kpi-label">Incohérences</div>
+                <div class="tj-kpi-head"><div class="kpi-label">Incohérences</div><span class="tj-kpi-icon">↔</span></div>
                 <div class="kpi-value">{len(incoherences)}</div>
                 <div class="kpi-sub">Entre pacte et statuts</div>
             </div>
@@ -169,7 +167,7 @@ def render_metric_cards(report: dict[str, Any]):
         st.html(
             f"""
             <div class="tj-kpi">
-                <div class="kpi-label">Documents</div>
+                <div class="tj-kpi-head"><div class="kpi-label">Documents</div><span class="tj-kpi-icon">▣</span></div>
                 <div class="kpi-value">{len(docs)}</div>
                 <div class="kpi-sub">Documents traités</div>
             </div>
@@ -292,7 +290,6 @@ def render_anomalie_card(index: int, anomalie: dict[str, Any], docs_by_name: dic
             "non_configure": "ℹ️ lien vers Légifrance fourni",
             "fictive": "⚠️ référence à remplacer",
             "liee": "ℹ️ liée à Légifrance",
-            "source_non_legale": "ℹ️ source non réglementaire (pas une référence d'article)",
         }
         if statut in labels:
             details.append(f"<b>Vérification :</b> {labels[statut]}")

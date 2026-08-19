@@ -37,6 +37,8 @@ def inject_global_styles():
     --legal-navy-soft: #1D4371;
     --legal-accent: #2365DF;
     --legal-accent-soft: #E7EFFC;
+    --legal-gold: #F2B84B;
+    --legal-gold-soft: #F8D98C;
     --legal-sky: #F0F5FF;
     --legal-sky-dark: #D9E4FB;
     --legal-bg: #F5F8FF;
@@ -62,7 +64,7 @@ h1, h2, h3, h4 {
     color: var(--legal-navy) !important;
     letter-spacing: -0.01em;
 }
-.block-container { padding-top: 2.2rem; max-width: 1260px; }
+.block-container { padding-top: 1.6rem; max-width: 1260px; }
 [data-testid="stCaptionContainer"] p { color: var(--legal-muted); font-size: 0.84rem; }
 [data-testid="stMarkdownContainer"] p { line-height: 1.65; }
 
@@ -74,7 +76,7 @@ h1, h2, h3, h4 {
     background-color: var(--legal-white);
     border-right: none;
     box-shadow: 3px 0 22px rgba(15, 34, 68, 0.08);
-    padding-top: 1.2rem;
+    padding-top: 0.7rem;
 }
 [data-testid="stSidebar"] .block-container { padding-top: 0.5rem; }
 [data-testid="stSidebar"] [data-testid="stSidebarHeader"] { background: transparent; }
@@ -118,7 +120,7 @@ h1, h2, h3, h4 {
 }
 
 .tj-sidebar-card-top {
-    margin-top: 1rem;
+    margin-top: 0.55rem;
 }
 .tj-sidebar-logo-fallback {
     display: inline-flex;
@@ -263,7 +265,7 @@ h1, h2, h3, h4 {
     padding: 2rem 2.4rem 2.2rem 2.4rem;
     color: var(--legal-navy);
     box-shadow: 0 20px 48px rgba(15, 34, 68, 0.08);
-    margin-bottom: 1.8rem;
+    margin-bottom: 1.35rem;
 }
 .tj-hero-top {
     display: flex;
@@ -275,11 +277,12 @@ h1, h2, h3, h4 {
 .tj-hero h1 {
     font-size: 2.15rem;
     margin: 0;
+    letter-spacing: -0.02em;
 }
 .tj-hero p {
     color: var(--legal-muted);
     margin: 0.65rem 0 0 0;
-    max-width: 680px;
+    max-width: 820px;
     font-size: 1rem;
 }
 .tj-hero-pill {
@@ -341,7 +344,7 @@ h1, h2, h3, h4 {
 .tj-sidebar-brand p { color: rgba(255,255,255,0.72); font-size: 0.82rem; margin: 0; }
 
 /* Section titles */
-.tj-section-title { display: flex; align-items: flex-start; gap: 0.7rem; margin: 1.1rem 0 0.35rem 0; }
+.tj-section-title { display: flex; align-items: flex-start; gap: 0.7rem; margin: 1.35rem 0 0.45rem 0; }
 .tj-section-accent { width: 5px; height: 34px; border-radius: 3px; background: linear-gradient(180deg, var(--legal-gold), var(--legal-gold-soft)); flex: 0 0 auto; }
 .tj-section-title h2 { margin: 0; font-size: 1.55rem; line-height: 1.2; }
 .tj-section-title p { margin: 0.2rem 0 0 0; color: var(--legal-muted); font-size: 0.92rem; }
@@ -385,8 +388,23 @@ h1, h2, h3, h4 {
     background: #fff;
     border: 1px solid var(--legal-border);
     border-radius: 18px;
-    padding: 1.15rem 1.3rem;
+    padding: 1.15rem 1.25rem;
     box-shadow: 0 3px 18px rgba(22,33,62,0.06);
+    min-height: 126px;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.tj-kpi:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(15,34,68,0.10); }
+.tj-kpi-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.tj-kpi-icon {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: var(--legal-accent-soft);
+    color: var(--legal-accent);
+    font-size: 1rem;
 }
 .tj-kpi .kpi-label { color: var(--legal-muted); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
 .tj-kpi .kpi-value { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 800; color: var(--legal-navy); line-height: 1.05; margin: 0.25rem 0 0.35rem 0; }
@@ -452,6 +470,25 @@ h1, h2, h3, h4 {
     border-radius: 10px !important;
     border-color: var(--legal-border) !important;
     font-family: 'Inter', sans-serif;
+}
+
+/* Keep Streamlit controls visually aligned with the reference dashboard. */
+[data-testid="stFileUploaderDropzone"] button,
+[data-testid="stDownloadButton"] button,
+[data-testid="stButton"] button {
+    min-height: 42px;
+}
+[data-testid="stSidebar"] [data-testid="stButton"] button {
+    border-radius: 12px;
+}
+
+@media (max-width: 900px) {
+    .block-container { padding: 1rem 1rem 2rem 1rem; }
+    .tj-hero { padding: 1.45rem; border-radius: 20px; }
+    .tj-hero h1 { font-size: 1.7rem; }
+    .tj-hero p { font-size: 0.92rem; }
+    .tj-brand-text { font-size: 0.85rem; letter-spacing: 0.08em; }
+    .tj-hero-icon { width: 46px; height: 46px; font-size: 1.2rem; }
 }
 
 /* ---------- Metrics ---------- */
